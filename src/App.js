@@ -4,6 +4,8 @@ import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, F
 const TherapistSOAPNotes = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [sessionStartTime, setSessionStartTime] = useState('14:00');
+  const [sessionEndTime, setSessionEndTime] = useState('15:30');
   const [selectedChild, setSelectedChild] = useState(null);
   const [soapNote, setSoapNote] = useState({
     subjective: '',
@@ -48,6 +50,66 @@ const TherapistSOAPNotes = () => {
 
   const formatDate = (date) => {
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return 'N/A';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const getSessionDurationMinutes = (startTime, endTime) => {
+    if (!startTime || !endTime) return 0;
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    return endMinutes > startMinutes ? endMinutes - startMinutes : 0;
+  };
+
+  const formatDuration = (minutes) => {
+    if (minutes <= 0) return 'N/A';
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (hours === 0) {
+      return `${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
+    } else if (remainingMinutes === 0) {
+      return `${hours} hour${hours !== 1 ? 's' : ''}`;
+    } else {
+      return `${hours} hour${hours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
+    }
+  };
+
+  const sectionHasContent = (index) => {
+    switch (index) {
+      case 0: // Calendar
+        return selectedChild !== null;
+      case 1: // Subjective
+        return soapNote.subjective.trim().length > 0;
+      case 2: // Objective
+        // Requires BOTH: at least one category selected AND objective notes text
+        return (
+          Object.values(soapNote.objectiveCategories).some(Boolean) &&
+          soapNote.objectiveNotes.trim().length > 0
+        );
+      case 3: // Assessment
+        return soapNote.assessment.trim().length > 0;
+      case 4: // Plan
+        return soapNote.plan.trim().length > 0;
+      case 5: // Review
+        // Only considered \"complete\" when all previous sections have content
+        return (
+          sectionHasContent(1) &&
+          sectionHasContent(2) &&
+          sectionHasContent(3) &&
+          sectionHasContent(4)
+        );
+      default:
+        return false;
+    }
   };
 
   const handleObjectiveCategoryToggle = (key) => {
@@ -98,21 +160,27 @@ const TherapistSOAPNotes = () => {
           const Icon = step.icon;
           const isActive = index === currentStep;
           const isCompleted = index < currentStep;
+          const hasContent = sectionHasContent(index);
+
+          // Hide the Calendar step from breadcrumbs; start at Subjective
+          if (index === 0) return null;
 
   return (
             <div key={index} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
-                <div
+                <button
+                  onClick={() => index !== 6 && setCurrentStep(index)}
+                  disabled={index === 6}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-lg scale-110'
-                      : isCompleted
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-300 text-gray-600'
-                  }`}
+                      : hasContent
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
+                  } ${index === 6 ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                   <Icon size={24} />
-                </div>
+                </button>
                 <span className={`mt-2 text-xs font-medium ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
                   {step.name}
                 </span>
@@ -147,7 +215,7 @@ const TherapistSOAPNotes = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-semibold text-gray-700 mb-4">Today's Patients</h3>
+        <h3 className="text-xl font-semibold text-gray-700 mb-4">Patients</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {patients.map(patient => (
             <div
@@ -229,12 +297,7 @@ const TherapistSOAPNotes = () => {
         </button>
         <button
           onClick={handleNextStep}
-          disabled={!soapNote.subjective.trim()}
-          className={`px-8 py-3 rounded-lg font-semibold flex items-center gap-2 ${
-            soapNote.subjective.trim()
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
+          className="px-8 py-3 rounded-lg font-semibold flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
         >
           Continue
           <ChevronRight size={20} />
@@ -303,12 +366,7 @@ const TherapistSOAPNotes = () => {
         </button>
         <button
           onClick={handleNextStep}
-          disabled={!soapNote.objectiveNotes.trim()}
-          className={`px-8 py-3 rounded-lg font-semibold flex items-center gap-2 ${
-            soapNote.objectiveNotes.trim()
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
+          className="px-8 py-3 rounded-lg font-semibold flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
         >
           Continue
           <ChevronRight size={20} />
@@ -353,12 +411,7 @@ const TherapistSOAPNotes = () => {
         </button>
         <button
           onClick={handleNextStep}
-          disabled={!soapNote.assessment.trim()}
-          className={`px-8 py-3 rounded-lg font-semibold flex items-center gap-2 ${
-            soapNote.assessment.trim()
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
+          className="px-8 py-3 rounded-lg font-semibold flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
         >
           Continue
           <ChevronRight size={20} />
@@ -403,12 +456,7 @@ const TherapistSOAPNotes = () => {
         </button>
         <button
           onClick={handleNextStep}
-          disabled={!soapNote.plan.trim()}
-          className={`px-8 py-3 rounded-lg font-semibold flex items-center gap-2 ${
-            soapNote.plan.trim()
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
+          className="px-8 py-3 rounded-lg font-semibold flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
         >
           Continue
           <ChevronRight size={20} />
@@ -426,13 +474,48 @@ const TherapistSOAPNotes = () => {
         <div className="mb-6 pb-4 border-b-2">
           <h3 className="text-2xl font-bold text-gray-800">{selectedChild?.name}</h3>
           <p className="text-sm text-gray-600 mt-1">{selectedChild?.diagnosis} • Age {selectedChild?.age}</p>
-          <p className="text-sm text-gray-600">Session Date: {formatDate(selectedDate)}</p>
+          <div className="mt-4 space-y-2">
+            <p className="text-sm text-gray-600">
+              <strong>Session:</strong> {formatDate(selectedDate)} • {formatTime(sessionStartTime)} - {formatTime(sessionEndTime)}
+              {getSessionDurationMinutes(sessionStartTime, sessionEndTime) > 0 && (
+                <span className="ml-2 text-blue-600">({formatDuration(getSessionDurationMinutes(sessionStartTime, sessionEndTime))})</span>
+              )}
+            </p>
+            <div className="flex gap-4">
+              <input
+                type="date"
+                value={selectedDate.toISOString().split('T')[0]}
+                onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex gap-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    value={sessionStartTime}
+                    onChange={(e) => setSessionStartTime(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">End Time</label>
+                  <input
+                    type="time"
+                    value={sessionEndTime}
+                    onChange={(e) => setSessionEndTime(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">
           <div className="border-l-4 border-purple-600 pl-4">
             <h4 className="text-lg font-bold text-purple-600 mb-2">SUBJECTIVE</h4>
-            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.subjective}</p>
+            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.subjective.trim() || 'N/A'}</p>
           </div>
 
           <div className="border-l-4 border-blue-600 pl-4">
@@ -449,17 +532,17 @@ const TherapistSOAPNotes = () => {
                   ))}
               </div>
             </div>
-            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.objectiveNotes}</p>
+            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.objectiveNotes.trim() || 'N/A'}</p>
           </div>
 
           <div className="border-l-4 border-orange-600 pl-4">
             <h4 className="text-lg font-bold text-orange-600 mb-2">ASSESSMENT</h4>
-            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.assessment}</p>
+            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.assessment.trim() || 'N/A'}</p>
           </div>
 
           <div className="border-l-4 border-green-600 pl-4">
             <h4 className="text-lg font-bold text-green-600 mb-2">PLAN</h4>
-            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.plan}</p>
+            <p className="text-gray-700 whitespace-pre-wrap">{soapNote.plan.trim() || 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -503,8 +586,11 @@ const TherapistSOAPNotes = () => {
               <p className="font-semibold text-gray-800">{selectedChild?.name}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Date</p>
-              <p className="font-semibold text-gray-800">{formatDate(selectedDate)}</p>
+              <p className="text-sm text-gray-600">Date & Time</p>
+              <p className="font-semibold text-gray-800">{formatDate(selectedDate)} • {formatTime(sessionStartTime)} - {formatTime(sessionEndTime)}</p>
+              {getSessionDurationMinutes(sessionStartTime, sessionEndTime) > 0 && (
+                <p className="text-sm text-blue-600 mt-1">{formatDuration(getSessionDurationMinutes(sessionStartTime, sessionEndTime))}</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">Categories</p>
@@ -524,7 +610,7 @@ const TherapistSOAPNotes = () => {
           className="px-10 py-4 rounded-lg font-semibold text-lg bg-blue-600 text-white hover:bg-blue-700 shadow-lg flex items-center gap-3 mx-auto"
         >
           <Home size={24} />
-          Return to Calendar
+          Return to Home
         </button>
       </div>
     </div>
@@ -557,9 +643,9 @@ const TherapistSOAPNotes = () => {
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Pediatric Therapy SOAP Notes</h1>
           <p className="text-gray-600">Structured session documentation system</p>
-        </header>
+      </header>
 
-        {currentStep < 6 && renderStepIndicator()}
+        {currentStep > 0 && currentStep < 6 && renderStepIndicator()}
 
         <main>
           {renderCurrentStep()}
