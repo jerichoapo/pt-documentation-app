@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, FileText, Home } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
@@ -27,6 +27,32 @@ const SessionWizard = () => {
   });
 
   const patient = getPatientById(patientId);
+
+  const getCurrentTimeDefaults = () => {
+    const now = new Date();
+    const endTime = now;
+    const startTime = new Date(now.getTime() - 30 * 60 * 1000); // 30 minutes earlier
+
+    const formatTimeForInput = (date) => {
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
+
+    return {
+      startTime: formatTimeForInput(startTime),
+      endTime: formatTimeForInput(endTime)
+    };
+  };
+
+  // Auto-populate time fields when entering the review step
+  useEffect(() => {
+    if (currentStep === 5) { // Review step
+      const timeDefaults = getCurrentTimeDefaults();
+      setSessionStartTime(timeDefaults.startTime);
+      setSessionEndTime(timeDefaults.endTime);
+    }
+  }, [currentStep]);
 
   const steps = [
     { name: 'Calendar', icon: Calendar },
