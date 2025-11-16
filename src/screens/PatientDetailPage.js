@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText, Clock } from 'lucide-react';
 import { usePatient, useSessionsForPatient, usePatientData } from '../context/PatientDataContext';
+import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
 
 const PatientDetailPage = () => {
   const { patientId } = useParams();
@@ -61,11 +62,6 @@ const PatientDetailPage = () => {
     setVisibleSessions(prev => prev + 10);
   };
 
-  const truncateText = (text, maxLength = 100) => {
-    if (!text) return 'N/A';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-  };
 
   if (!patient) {
     return (
@@ -190,21 +186,19 @@ const PatientDetailPage = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <Calendar className="text-blue-600" size={16} />
                       <span className="text-sm font-medium text-gray-900">
-                        {new Date(session.sessionDate).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {formatDate(new Date(session.sessionDate))}
                       </span>
                     </div>
-                    <div className="space-y-2 text-sm text-gray-700">
-                      <div>
-                        <span className="font-medium">Subjective:</span> {truncateText(session.subjective)}
-                      </div>
-                      <div>
-                        <span className="font-medium">Assessment:</span> {truncateText(session.assessment)}
-                      </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <Clock size={16} />
+                      <span>
+                        {formatTimeRange(session.startTime, session.endTime)}
+                        {getSessionDurationMinutes(session.startTime, session.endTime) > 0 && (
+                          <span className="ml-2 text-blue-600">
+                            ({formatDuration(getSessionDurationMinutes(session.startTime, session.endTime))})
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
                   <button

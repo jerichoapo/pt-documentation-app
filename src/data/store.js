@@ -210,6 +210,8 @@ export const store = {
       id: generateId(),
       patientId: sessionData.patientId,
       sessionDate: sessionData.sessionDate,
+      startTime: sessionData.startTime || null,
+      endTime: sessionData.endTime || null,
       subjective: sessionData.subjective?.trim() || '',
       objectiveCategories: sessionData.objectiveCategories || {
         balance: false,
@@ -230,6 +232,70 @@ export const store = {
     // Update patient cache
     const newPatients = data.patients.map(patient => {
       if (patient.id === sessionData.patientId) {
+        return updatePatientCache(patient, newSessions);
+      }
+      return patient;
+    });
+
+    const newData = {
+      ...data,
+      patients: newPatients,
+      sessions: newSessions
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  updateSession: (data, sessionId, updates) => {
+    const sessionIndex = data.sessions.findIndex(s => s.id === sessionId);
+    if (sessionIndex === -1) {
+      throw new Error('Session not found');
+    }
+
+    const existingSession = data.sessions[sessionIndex];
+    const updatedSession = {
+      ...existingSession,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    const newSessions = [...data.sessions];
+    newSessions[sessionIndex] = updatedSession;
+
+    // Update patient cache if patientId changed
+    let newPatients = data.patients;
+    if (updates.patientId && updates.patientId !== existingSession.patientId) {
+      // Remove from old patient and add to new patient
+      newPatients = data.patients.map(patient => {
+        if (patient.id === existingSession.patientId || patient.id === updates.patientId) {
+          return updatePatientCache(patient, newSessions);
+        }
+        return patient;
+      });
+    }
+
+    const newData = {
+      ...data,
+      patients: newPatients,
+      sessions: newSessions
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  deleteSession: (data, sessionId) => {
+    const sessionToDelete = data.sessions.find(s => s.id === sessionId);
+    if (!sessionToDelete) {
+      throw new Error('Session not found');
+    }
+
+    const newSessions = data.sessions.filter(s => s.id !== sessionId);
+
+    // Update patient cache
+    const newPatients = data.patients.map(patient => {
+      if (patient.id === sessionToDelete.patientId) {
         return updatePatientCache(patient, newSessions);
       }
       return patient;

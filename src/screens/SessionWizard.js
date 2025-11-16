@@ -135,6 +135,8 @@ const SessionWizard = () => {
       await addSession({
         patientId,
         sessionDate: selectedDate.toISOString(),
+        startTime: sessionStartTime,
+        endTime: sessionEndTime,
         subjective: soapNote.subjective,
         objectiveCategories: soapNote.objectiveCategories,
         objectiveNotes: soapNote.objectiveNotes,

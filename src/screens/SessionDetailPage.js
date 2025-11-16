@@ -1,47 +1,83 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock } from 'lucide-react';
-import { useSession, usePatient } from '../context/PatientDataContext';
+import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2 } from 'lucide-react';
+import { useSession, usePatient, usePatientData } from '../context/PatientDataContext';
+import { formatDate, formatTime, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
 
 const SessionDetailPage = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const session = useSession(sessionId);
   const patient = usePatient(session?.patientId ?? '');
+  const { updateSession, deleteSession } = usePatientData();
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  };
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedSession, setEditedSession] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const formatTime = (timeString) => {
-    if (!timeString) return 'N/A';
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
-  const getSessionDurationMinutes = (startTime, endTime) => {
-    if (!startTime || !endTime) return 0;
-    const [startHour, startMin] = startTime.split(':').map(Number);
-    const [endHour, endMin] = endTime.split(':').map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
-    return endMinutes > startMinutes ? endMinutes - startMinutes : 0;
-  };
-
-  const formatDuration = (minutes) => {
-    if (minutes <= 0) return 'N/A';
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    if (hours === 0) {
-      return `${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
-    } else if (remainingMinutes === 0) {
-      return `${hours} hour${hours !== 1 ? 's' : ''}`;
-    } else {
-      return `${hours} hour${hours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
+  // Initialize edited session when session loads
+  useEffect(() => {
+    if (session && !editedSession) {
+      setEditedSession({
+        ...session,
+        sessionDate: session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : ''
+      });
     }
+  }, [session, editedSession]);
+
+  const handleStartEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedSession({
+      ...session,
+      sessionDate: session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : ''
+    });
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!editedSession) return;
+
+    setIsSaving(true);
+    try {
+      await updateSession(sessionId, {
+        sessionDate: new Date(editedSession.sessionDate).toISOString(),
+        startTime: editedSession.startTime || null,
+        endTime: editedSession.endTime || null,
+        subjective: editedSession.subjective?.trim() || '',
+        objectiveCategories: editedSession.objectiveCategories || {},
+        objectiveNotes: editedSession.objectiveNotes?.trim() || '',
+        assessment: editedSession.assessment?.trim() || '',
+        plan: editedSession.plan?.trim() || ''
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update session:', error);
+      // Error toast is shown by the context
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+      try {
+        await deleteSession(sessionId);
+        navigate(`/patients/${patient.id}`);
+      } catch (error) {
+        console.error('Failed to delete session:', error);
+        // Error toast is shown by the context
+      }
+    }
+  };
+
+  const updateEditedSession = (field, value) => {
+    setEditedSession(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   if (!session) {
@@ -85,6 +121,45 @@ const SessionDetailPage = () => {
           <ArrowLeft size={20} />
           Back to {patient.firstName} {patient.lastName}
         </Link>
+        <div className="flex items-center gap-3">
+          {!isEditing ? (
+            <>
+              <button
+                onClick={handleStartEdit}
+                className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 font-medium"
+              >
+                <Edit2 size={16} />
+                Edit
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-medium"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save size={16} />
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X size={16} />
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -98,14 +173,46 @@ const SessionDetailPage = () => {
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <Calendar size={16} />
-              <span>{formatDate(new Date(session.sessionDate))}</span>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={editedSession?.sessionDate || ''}
+                  onChange={(e) => updateEditedSession('sessionDate', e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <span>{formatDate(new Date(session.sessionDate))}</span>
+              )}
             </div>
-            {getSessionDurationMinutes(session.startTime, session.endTime) > 0 && (
-              <div className="flex items-center gap-1">
-                <Clock size={16} />
-                <span>{formatDuration(getSessionDurationMinutes(session.startTime, session.endTime))}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Clock size={16} />
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={editedSession?.startTime || ''}
+                    onChange={(e) => updateEditedSession('startTime', e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span>-</span>
+                  <input
+                    type="time"
+                    value={editedSession?.endTime || ''}
+                    onChange={(e) => updateEditedSession('endTime', e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              ) : (
+                <span>
+                  {formatTimeRange(session.startTime, session.endTime)}
+                  {getSessionDurationMinutes(session.startTime, session.endTime) > 0 && (
+                    <span className="ml-2 text-blue-600">
+                      ({formatDuration(getSessionDurationMinutes(session.startTime, session.endTime))})
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -113,9 +220,18 @@ const SessionDetailPage = () => {
           {/* Subjective */}
           <div className="border-l-4 border-purple-600 pl-6">
             <h3 className="text-xl font-bold text-purple-600 mb-3">SUBJECTIVE</h3>
-            <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {session.subjective || 'No subjective notes recorded.'}
-            </div>
+            {isEditing ? (
+              <textarea
+                value={editedSession?.subjective || ''}
+                onChange={(e) => updateEditedSession('subjective', e.target.value)}
+                placeholder="Document the child's reported symptoms, feelings, and caregiver observations..."
+                className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:outline-none text-base"
+              />
+            ) : (
+              <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {session.subjective || 'No subjective notes recorded.'}
+              </div>
+            )}
           </div>
 
           {/* Objective */}
@@ -123,72 +239,123 @@ const SessionDetailPage = () => {
             <h3 className="text-xl font-bold text-blue-600 mb-3">OBJECTIVE</h3>
 
             {/* Categories */}
-            {session.objectiveCategories && Object.values(session.objectiveCategories).some(Boolean) && (
+            {isEditing ? (
               <div className="mb-4">
                 <p className="text-sm font-semibold text-gray-600 mb-2">Assessment Categories:</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(session.objectiveCategories).map(([key, isSelected]) => {
-                    if (!isSelected) return null;
-
-                    const categoryLabels = {
-                      balance: 'Balance & Coordination',
-                      motorSkills: 'Gross Motor Skills',
-                      therapeuticActivities: 'Therapeutic Activities',
-                      transfers: 'Transfers & Positioning',
-                      classroomMobility: 'Classroom Mobility'
-                    };
-
-                    return (
-                      <span
-                        key={key}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
-                      >
-                        {categoryLabels[key] || key}
-                      </span>
-                    );
-                  })}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { key: 'balance', label: 'Balance & Coordination' },
+                    { key: 'motorSkills', label: 'Gross Motor Skills' },
+                    { key: 'therapeuticActivities', label: 'Therapeutic Activities' },
+                    { key: 'transfers', label: 'Transfers & Positioning' },
+                    { key: 'classroomMobility', label: 'Classroom Mobility' }
+                  ].map(option => (
+                    <button
+                      key={option.key}
+                      onClick={() => {
+                        const currentCategories = editedSession?.objectiveCategories || {};
+                        updateEditedSession('objectiveCategories', {
+                          ...currentCategories,
+                          [option.key]: !currentCategories[option.key]
+                        });
+                      }}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        editedSession?.objectiveCategories?.[option.key]
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-gray-300 hover:border-blue-400'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-800">{option.label}</span>
+                        {editedSession?.objectiveCategories?.[option.key] && (
+                          <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
+            ) : (
+              session.objectiveCategories && Object.values(session.objectiveCategories).some(Boolean) && (
+                <div className="mb-4">
+                  <p className="text-sm font-semibold text-gray-600 mb-2">Assessment Categories:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(session.objectiveCategories).map(([key, isSelected]) => {
+                      if (!isSelected) return null;
+
+                      const categoryLabels = {
+                        balance: 'Balance & Coordination',
+                        motorSkills: 'Gross Motor Skills',
+                        therapeuticActivities: 'Therapeutic Activities',
+                        transfers: 'Transfers & Positioning',
+                        classroomMobility: 'Classroom Mobility'
+                      };
+
+                      return (
+                        <span
+                          key={key}
+                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                        >
+                          {categoryLabels[key] || key}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )
             )}
 
             {/* Objective Notes */}
-            <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {session.objectiveNotes || 'No objective observations recorded.'}
-            </div>
+            {isEditing ? (
+              <textarea
+                value={editedSession?.objectiveNotes || ''}
+                onChange={(e) => updateEditedSession('objectiveNotes', e.target.value)}
+                placeholder="Document measurable observations from the session..."
+                className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
+              />
+            ) : (
+              <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {session.objectiveNotes || 'No objective observations recorded.'}
+              </div>
+            )}
           </div>
 
           {/* Assessment */}
           <div className="border-l-4 border-orange-600 pl-6">
             <h3 className="text-xl font-bold text-orange-600 mb-3">ASSESSMENT</h3>
-            <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {session.assessment || 'No assessment recorded.'}
-            </div>
+            {isEditing ? (
+              <textarea
+                value={editedSession?.assessment || ''}
+                onChange={(e) => updateEditedSession('assessment', e.target.value)}
+                placeholder="Analyze the child's performance and progress toward goals..."
+                className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:border-orange-600 focus:outline-none text-base"
+              />
+            ) : (
+              <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {session.assessment || 'No assessment recorded.'}
+              </div>
+            )}
           </div>
 
           {/* Plan */}
           <div className="border-l-4 border-green-600 pl-6">
             <h3 className="text-xl font-bold text-green-600 mb-3">PLAN</h3>
-            <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {session.plan || 'No treatment plan recorded.'}
-            </div>
+            {isEditing ? (
+              <textarea
+                value={editedSession?.plan || ''}
+                onChange={(e) => updateEditedSession('plan', e.target.value)}
+                placeholder="Document treatment plan and next steps..."
+                className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:border-green-600 focus:outline-none text-base"
+              />
+            ) : (
+              <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {session.plan || 'No treatment plan recorded.'}
+              </div>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* Footer Actions */}
-      <div className="flex justify-center gap-4">
-        <Link
-          to={`/patients/${patient.id}`}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
-        >
-          Back to Patient
-        </Link>
-        <Link
-          to="/"
-          className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 font-medium"
-        >
-          Home
-        </Link>
       </div>
     </div>
   );

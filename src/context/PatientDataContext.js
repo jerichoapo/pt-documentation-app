@@ -9,6 +9,8 @@ const ACTIONS = {
   UPDATE_PATIENT: 'UPDATE_PATIENT',
   DELETE_PATIENT: 'DELETE_PATIENT',
   ADD_SESSION: 'ADD_SESSION',
+  UPDATE_SESSION: 'UPDATE_SESSION',
+  DELETE_SESSION: 'DELETE_SESSION',
   SET_ERROR: 'SET_ERROR',
   CLEAR_ERROR: 'CLEAR_ERROR'
 };
@@ -48,6 +50,22 @@ const patientDataReducer = (state, action) => {
       };
 
     case ACTIONS.ADD_SESSION:
+      return {
+        ...state,
+        patients: action.payload.patients,
+        sessions: action.payload.sessions,
+        error: null
+      };
+
+    case ACTIONS.UPDATE_SESSION:
+      return {
+        ...state,
+        patients: action.payload.patients,
+        sessions: action.payload.sessions,
+        error: null
+      };
+
+    case ACTIONS.DELETE_SESSION:
       return {
         ...state,
         patients: action.payload.patients,
@@ -235,6 +253,77 @@ export const PatientDataProvider = ({ children }) => {
     }
   };
 
+  const updateSession = async (sessionId, updates) => {
+    try {
+      const newData = store.updateSession({
+        patients: state.patients,
+        sessions: state.sessions
+      }, sessionId, updates);
+
+      dispatch({
+        type: ACTIONS.UPDATE_SESSION,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      addToast('Session updated successfully', 'success');
+
+      return newData.sessions.find(s => s.id === sessionId);
+    } catch (error) {
+      if (error.message === 'STORAGE_QUOTA_EXCEEDED') {
+        addToast('Storage limit reached. Please export and archive old sessions.', 'error');
+        dispatch({
+          type: ACTIONS.SET_ERROR,
+          payload: { type: 'QUOTA_EXCEEDED', message: 'Storage limit reached. Please export and archive old sessions.' }
+        });
+      } else {
+        addToast('Failed to update session', 'error');
+        dispatch({
+          type: ACTIONS.SET_ERROR,
+          payload: { type: 'SAVE_ERROR', message: 'Failed to update session' }
+        });
+      }
+      throw error;
+    }
+  };
+
+  const deleteSession = async (sessionId) => {
+    try {
+      const sessionToDelete = state.sessions.find(s => s.id === sessionId);
+      if (!sessionToDelete) {
+        throw new Error('Session not found');
+      }
+
+      const newData = store.deleteSession({
+        patients: state.patients,
+        sessions: state.sessions
+      }, sessionId);
+
+      dispatch({
+        type: ACTIONS.DELETE_SESSION,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      addToast('Session deleted successfully', 'success');
+
+      return sessionToDelete;
+    } catch (error) {
+      addToast('Failed to delete session', 'error');
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: { type: 'SAVE_ERROR', message: 'Failed to delete session' }
+      });
+      throw error;
+    }
+  };
+
   const clearError = () => {
     dispatch({ type: ACTIONS.CLEAR_ERROR });
   };
@@ -283,6 +372,8 @@ export const PatientDataProvider = ({ children }) => {
     updatePatient,
     deletePatient,
     addSession,
+    updateSession,
+    deleteSession,
     clearError,
     clearAllData,
     exportData
