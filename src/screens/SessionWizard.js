@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, FileText, Home } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 
 const SessionWizard = () => {
   const { patientId, section } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { getPatientById, addSession } = usePatientData();
+
+  // Extract referrer from query parameters, default to 'profile'
+  const searchParams = new URLSearchParams(location.search);
+  const referrer = searchParams.get('referrer') || 'profile';
 
   const [currentStep, setCurrentStep] = useState(section === 'subjective' ? 1 : 0);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -151,7 +156,14 @@ const SessionWizard = () => {
   };
 
   const handlePrevStep = () => {
-    if (currentStep > 0) {
+    if (currentStep === 1) {
+      // On subjective step, navigate back based on referrer
+      if (referrer === 'home') {
+        navigate('/');
+      } else {
+        navigate(`/patients/${patientId}`);
+      }
+    } else if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };

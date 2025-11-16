@@ -106,7 +106,7 @@ const HomePage = () => {
 
                 <div className="flex gap-3 mt-4">
                   <button
-                    onClick={() => startSession(patient.id)}
+                    onClick={() => startSession(patient.id, 'home')}
                     className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
                   >
                     Start Session
