@@ -58,6 +58,24 @@ const PatientForm = () => {
     return phone.replace(/\D/g, '');
   };
 
+  const formatPhoneNumber = (phone) => {
+    // Remove all non-digit characters
+    const digits = phone.replace(/\D/g, '');
+
+    // Apply formatting: (xxx) xxx - xxxx
+    if (digits.length >= 10) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)} - ${digits.slice(6, 10)}`;
+    } else if (digits.length >= 6) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)} - ${digits.slice(6)}`;
+    } else if (digits.length >= 3) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    } else if (digits.length > 0) {
+      return `(${digits}`;
+    }
+
+    return '';
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -70,6 +88,10 @@ const PatientForm = () => {
       newErrors.lastName = 'Last name is required';
     }
 
+    if (!formData.guardianName.trim()) {
+      newErrors.guardianName = 'Parent/Guardian name is required';
+    }
+
     if (!formData.dob) {
       newErrors.dob = 'Date of birth is required';
     } else {
@@ -80,13 +102,21 @@ const PatientForm = () => {
       if (birthDate >= today) {
         newErrors.dob = 'Date of birth cannot be in the future';
       }
+
+      // Ensure year is limited to 4 digits
+      const year = formData.dob.split('-')[0];
+      if (year && year.length > 4) {
+        newErrors.dob = 'Year must be 4 digits or less';
+      }
     }
 
-    // Phone validation (optional field, but validate format if provided)
-    if (formData.guardianPhone && formData.guardianPhone.trim()) {
+    // Phone validation (required field)
+    if (!formData.guardianPhone || !formData.guardianPhone.trim()) {
+      newErrors.guardianPhone = 'Contact phone number is required';
+    } else {
       const normalized = normalizePhoneNumber(formData.guardianPhone);
-      if (normalized.length < 10) {
-        newErrors.guardianPhone = 'Please enter a valid phone number';
+      if (normalized.length !== 10) {
+        newErrors.guardianPhone = 'Please enter a valid 10-digit phone number';
       }
     }
 
@@ -174,7 +204,25 @@ const PatientForm = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    let processedValue = value;
+
+    // Special handling for phone number formatting
+    if (field === 'guardianPhone') {
+      processedValue = formatPhoneNumber(value);
+    }
+
+    // Special handling for DOB year limitation
+    if (field === 'dob' && value) {
+      // Split date into components: YYYY-MM-DD
+      const parts = value.split('-');
+      if (parts.length >= 1) {
+        // Limit year to 4 digits maximum
+        parts[0] = parts[0].substring(0, 4);
+        processedValue = parts.join('-');
+      }
+    }
+
+    setFormData(prev => ({ ...prev, [field]: processedValue }));
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -305,20 +353,25 @@ const PatientForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Parent/Guardian Name
+                Parent/Guardian Name *
               </label>
               <input
                 type="text"
                 value={formData.guardianName}
                 onChange={(e) => handleInputChange('guardianName', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter guardian name (optional)"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.guardianName ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter guardian name"
               />
+              {errors.guardianName && (
+                <p className="mt-1 text-sm text-red-600">{errors.guardianName}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Phone Number
+                Contact Phone Number *
               </label>
               <input
                 type="tel"
@@ -327,7 +380,7 @@ const PatientForm = () => {
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.guardianPhone ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="(555) 123-4567"
+                placeholder="(555) 123 - 4567"
               />
               {errors.guardianPhone && (
                 <p className="mt-1 text-sm text-red-600">{errors.guardianPhone}</p>
