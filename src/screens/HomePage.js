@@ -3,10 +3,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Calendar, ChevronRight, MoreVertical } from 'lucide-react';
 import { usePatients } from '../context/PatientDataContext';
 import PatientActionsMenu from '../components/PatientActionsMenu';
+import { useStartSession } from '../hooks/useStartSession';
 
 const HomePage = () => {
   const navigate = useNavigate();
   const patients = usePatients();
+  const startSession = useStartSession();
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const formatDate = (date) => {
@@ -24,10 +26,6 @@ const HomePage = () => {
     }
 
     return age;
-  };
-
-  const handleStartSession = (patientId) => {
-    navigate(`/sessions/new/${patientId}`);
   };
 
   const handleViewPatient = (patientId) => {
@@ -108,7 +106,7 @@ const HomePage = () => {
 
                 <div className="flex gap-3 mt-4">
                   <button
-                    onClick={() => handleStartSession(patient.id)}
+                    onClick={() => startSession(patient.id)}
                     className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
                   >
                     Start Session

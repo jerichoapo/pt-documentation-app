@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText, Clock } from 'lucide-react';
 import { usePatient, useSessionsForPatient, usePatientData } from '../context/PatientDataContext';
 import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
+import { useStartSession } from '../hooks/useStartSession';
 
 const PatientDetailPage = () => {
   const { patientId } = useParams();
@@ -10,6 +11,7 @@ const PatientDetailPage = () => {
   const patient = usePatient(patientId);
   const { deletePatient } = usePatientData();
   const allSessions = useSessionsForPatient(patientId);
+  const startSession = useStartSession();
 
   const [visibleSessions, setVisibleSessions] = useState(10);
   const sessionsToShow = allSessions.slice(0, visibleSessions);
@@ -25,10 +27,6 @@ const PatientDetailPage = () => {
     }
 
     return age;
-  };
-
-  const handleStartNewSession = () => {
-    navigate(`/sessions/new/${patientId}`);
   };
 
   const handleEditPatient = () => {
@@ -114,7 +112,7 @@ const PatientDetailPage = () => {
             {patient.firstName} {patient.lastName}
           </h1>
           <button
-            onClick={handleStartNewSession}
+            onClick={() => startSession(patientId)}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
           >
             <Plus size={20} />
@@ -167,7 +165,7 @@ const PatientDetailPage = () => {
             <FileText className="mx-auto text-gray-400 mb-4" size={48} />
             <p className="text-gray-600 mb-4">No sessions recorded yet.</p>
             <button
-              onClick={handleStartNewSession}
+              onClick={() => startSession(patientId)}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium inline-flex items-center gap-2"
             >
               <Plus size={20} />

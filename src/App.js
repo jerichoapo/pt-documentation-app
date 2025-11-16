@@ -65,7 +65,7 @@ const App = () => {
           <Route path="/patients/new" element={<PatientForm />} />
           <Route path="/patients/:patientId" element={<PatientDetailPage />} />
           <Route path="/patients/:patientId/edit" element={<PatientForm />} />
-          <Route path="/sessions/new/:patientId" element={<SessionWizard />} />
+          <Route path="/sessions/new/:patientId/:section?" element={<SessionWizard />} />
           <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
         </Routes>
       </main>

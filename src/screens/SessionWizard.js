@@ -4,11 +4,11 @@ import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, F
 import { usePatientData } from '../context/PatientDataContext';
 
 const SessionWizard = () => {
-  const { patientId } = useParams();
+  const { patientId, section } = useParams();
   const navigate = useNavigate();
   const { getPatientById, addSession } = usePatientData();
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(section === 'subjective' ? 1 : 0);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sessionStartTime, setSessionStartTime] = useState('14:00');
   const [sessionEndTime, setSessionEndTime] = useState('15:30');
