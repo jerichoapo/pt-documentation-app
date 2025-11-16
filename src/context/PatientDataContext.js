@@ -8,9 +8,15 @@ const ACTIONS = {
   ADD_PATIENT: 'ADD_PATIENT',
   UPDATE_PATIENT: 'UPDATE_PATIENT',
   DELETE_PATIENT: 'DELETE_PATIENT',
+  SOFT_DELETE_PATIENT: 'SOFT_DELETE_PATIENT',
+  RESTORE_PATIENT: 'RESTORE_PATIENT',
+  PERMANENTLY_DELETE_PATIENT: 'PERMANENTLY_DELETE_PATIENT',
   ADD_SESSION: 'ADD_SESSION',
   UPDATE_SESSION: 'UPDATE_SESSION',
   DELETE_SESSION: 'DELETE_SESSION',
+  SOFT_DELETE_SESSION: 'SOFT_DELETE_SESSION',
+  RESTORE_SESSION: 'RESTORE_SESSION',
+  PERMANENTLY_DELETE_SESSION: 'PERMANENTLY_DELETE_SESSION',
   SET_ERROR: 'SET_ERROR',
   CLEAR_ERROR: 'CLEAR_ERROR'
 };
@@ -42,6 +48,23 @@ const patientDataReducer = (state, action) => {
       };
 
     case ACTIONS.DELETE_PATIENT:
+    case ACTIONS.SOFT_DELETE_PATIENT:
+      return {
+        ...state,
+        patients: action.payload.patients,
+        sessions: action.payload.sessions,
+        error: null
+      };
+
+    case ACTIONS.RESTORE_PATIENT:
+      return {
+        ...state,
+        patients: action.payload.patients,
+        sessions: action.payload.sessions,
+        error: null
+      };
+
+    case ACTIONS.PERMANENTLY_DELETE_PATIENT:
       return {
         ...state,
         patients: action.payload.patients,
@@ -66,6 +89,23 @@ const patientDataReducer = (state, action) => {
       };
 
     case ACTIONS.DELETE_SESSION:
+    case ACTIONS.SOFT_DELETE_SESSION:
+      return {
+        ...state,
+        patients: action.payload.patients,
+        sessions: action.payload.sessions,
+        error: null
+      };
+
+    case ACTIONS.RESTORE_SESSION:
+      return {
+        ...state,
+        patients: action.payload.patients,
+        sessions: action.payload.sessions,
+        error: null
+      };
+
+    case ACTIONS.PERMANENTLY_DELETE_SESSION:
       return {
         ...state,
         patients: action.payload.patients,
@@ -324,6 +364,223 @@ export const PatientDataProvider = ({ children }) => {
     }
   };
 
+  const softDeletePatient = async (patientId) => {
+    try {
+      const patientToDelete = state.patients.find(p => p.id === patientId);
+      if (!patientToDelete) {
+        throw new Error('Patient not found');
+      }
+
+      const sessionCount = store.getSessionsForPatient({
+        patients: state.patients,
+        sessions: state.sessions
+      }, patientId).length;
+
+      const newData = store.softDeletePatient({
+        patients: state.patients,
+        sessions: state.sessions
+      }, patientId);
+
+      dispatch({
+        type: ACTIONS.SOFT_DELETE_PATIENT,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      const message = sessionCount > 0
+        ? `Patient and ${sessionCount} notes moved to Recently Deleted`
+        : 'Patient moved to Recently Deleted';
+      addToast(message, 'success');
+
+      return patientToDelete;
+    } catch (error) {
+      addToast('Failed to delete patient', 'error');
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: { type: 'SAVE_ERROR', message: 'Failed to delete patient' }
+      });
+      throw error;
+    }
+  };
+
+  const softDeleteSession = async (sessionId) => {
+    try {
+      const sessionToDelete = state.sessions.find(s => s.id === sessionId);
+      if (!sessionToDelete) {
+        throw new Error('Session not found');
+      }
+
+      const newData = store.softDeleteSession({
+        patients: state.patients,
+        sessions: state.sessions
+      }, sessionId);
+
+      dispatch({
+        type: ACTIONS.SOFT_DELETE_SESSION,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      addToast('Note moved to Recently Deleted', 'success');
+
+      return sessionToDelete;
+    } catch (error) {
+      addToast('Failed to delete note', 'error');
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: { type: 'SAVE_ERROR', message: 'Failed to delete note' }
+      });
+      throw error;
+    }
+  };
+
+  const restorePatient = async (patientId) => {
+    try {
+      const patientToRestore = state.patients.find(p => p.id === patientId && p.deleted_at);
+      if (!patientToRestore) {
+        throw new Error('Patient not found or not deleted');
+      }
+
+      const cascadeSessions = state.sessions.filter(s => s.deleted_with_patient_id === patientId).length;
+
+      const newData = store.restorePatient({
+        patients: state.patients,
+        sessions: state.sessions
+      }, patientId);
+
+      dispatch({
+        type: ACTIONS.RESTORE_PATIENT,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      const message = cascadeSessions > 0
+        ? `Patient and ${cascadeSessions} notes restored successfully`
+        : 'Patient restored successfully';
+      addToast(message, 'success');
+
+      return patientToRestore;
+    } catch (error) {
+      addToast('Failed to restore patient', 'error');
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: { type: 'SAVE_ERROR', message: 'Failed to restore patient' }
+      });
+      throw error;
+    }
+  };
+
+  const restoreSession = async (sessionId) => {
+    try {
+      const sessionToRestore = state.sessions.find(s => s.id === sessionId && s.deleted_at);
+      if (!sessionToRestore) {
+        throw new Error('Session not found or not deleted');
+      }
+
+      const newData = store.restoreSession({
+        patients: state.patients,
+        sessions: state.sessions
+      }, sessionId);
+
+      dispatch({
+        type: ACTIONS.RESTORE_SESSION,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      addToast('Note restored successfully', 'success');
+
+      return sessionToRestore;
+    } catch (error) {
+      addToast('Failed to restore note', 'error');
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: { type: 'SAVE_ERROR', message: 'Failed to restore note' }
+      });
+      throw error;
+    }
+  };
+
+  const permanentlyDeletePatient = async (patientId) => {
+    try {
+      const patientToDelete = state.patients.find(p => p.id === patientId && p.deleted_at);
+      if (!patientToDelete) {
+        throw new Error('Patient not found or not deleted');
+      }
+
+      const newData = store.permanentlyDeletePatient({
+        patients: state.patients,
+        sessions: state.sessions
+      }, patientId);
+
+      dispatch({
+        type: ACTIONS.PERMANENTLY_DELETE_PATIENT,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      addToast('Patient permanently deleted', 'success');
+
+      return patientToDelete;
+    } catch (error) {
+      addToast('Failed to permanently delete patient', 'error');
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: { type: 'SAVE_ERROR', message: 'Failed to permanently delete patient' }
+      });
+      throw error;
+    }
+  };
+
+  const permanentlyDeleteSession = async (sessionId) => {
+    try {
+      const sessionToDelete = state.sessions.find(s => s.id === sessionId && s.deleted_at);
+      if (!sessionToDelete) {
+        throw new Error('Session not found or not deleted');
+      }
+
+      const newData = store.permanentlyDeleteSession({
+        patients: state.patients,
+        sessions: state.sessions
+      }, sessionId);
+
+      dispatch({
+        type: ACTIONS.PERMANENTLY_DELETE_SESSION,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions
+        }
+      });
+
+      // Show success toast
+      addToast('Note permanently deleted', 'success');
+
+      return sessionToDelete;
+    } catch (error) {
+      addToast('Failed to permanently delete note', 'error');
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: { type: 'SAVE_ERROR', message: 'Failed to permanently delete note' }
+      });
+      throw error;
+    }
+  };
+
   const clearError = () => {
     dispatch({ type: ACTIONS.CLEAR_ERROR });
   };
@@ -367,13 +624,29 @@ export const PatientDataProvider = ({ children }) => {
       sessions: state.sessions
     }, id),
 
+    getRecentlyDeletedPatients: () => store.getRecentlyDeletedPatients({
+      patients: state.patients,
+      sessions: state.sessions
+    }),
+
+    getRecentlyDeletedSessions: () => store.getRecentlyDeletedSessions({
+      patients: state.patients,
+      sessions: state.sessions
+    }),
+
     // Actions
     addPatient,
     updatePatient,
     deletePatient,
+    softDeletePatient,
+    restorePatient,
+    permanentlyDeletePatient,
     addSession,
     updateSession,
     deleteSession,
+    softDeleteSession,
+    restoreSession,
+    permanentlyDeleteSession,
     clearError,
     clearAllData,
     exportData

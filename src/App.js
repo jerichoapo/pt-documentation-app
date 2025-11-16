@@ -5,6 +5,7 @@ import PatientsListPage from './screens/PatientsListPage';
 import PatientDetailPage from './screens/PatientDetailPage';
 import SessionWizard from './screens/SessionWizard';
 import SessionDetailPage from './screens/SessionDetailPage';
+import RecentlyDeletedPage from './screens/RecentlyDeletedPage';
 import PatientForm from './components/PatientForm';
 import ErrorModal from './components/ErrorModal';
 import { usePatientData } from './context/PatientDataContext';
@@ -48,6 +49,12 @@ const App = () => {
                 Home
               </Link>
               <Link
+                to="/recently-deleted"
+                className="text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Recently Deleted
+              </Link>
+              <Link
                 to="/patients/new"
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
               >
@@ -67,6 +74,7 @@ const App = () => {
           <Route path="/patients/:patientId/edit" element={<PatientForm />} />
           <Route path="/sessions/new/:patientId/:section?" element={<SessionWizard />} />
           <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
+          <Route path="/recently-deleted" element={<RecentlyDeletedPage />} />
         </Routes>
       </main>
 

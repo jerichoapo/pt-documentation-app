@@ -1,7 +1,7 @@
 // Data store for managing patients and sessions with localStorage persistence
 
 const STORAGE_KEY = 'ptAppData';
-const STORAGE_VERSION = '1.0';
+const STORAGE_VERSION = '1.1';
 
 // Default empty data structure
 const createEmptyData = () => ({
@@ -55,7 +55,7 @@ const generateId = () => {
 };
 
 const updatePatientCache = (patient, sessions) => {
-  const patientSessions = sessions.filter(s => s.patientId === patient.id);
+  const patientSessions = sessions.filter(s => s.patientId === patient.id && !s.deleted_at);
   if (patientSessions.length === 0) {
     return {
       ...patient,
@@ -74,6 +74,24 @@ const updatePatientCache = (patient, sessions) => {
     lastSessionDate: sortedSessions[0].sessionDate,
     sessionCount: patientSessions.length
   };
+};
+
+// Soft delete utilities
+const getPermanentlyDeletedAt = (deletedAt) => {
+  const deletedDate = new Date(deletedAt);
+  deletedDate.setDate(deletedDate.getDate() + 30); // 30 days retention
+  return deletedDate.toISOString();
+};
+
+const isExpiredForPermanentDeletion = (permanentlyDeletedAt) => {
+  return new Date(permanentlyDeletedAt) <= new Date();
+};
+
+const daysUntilPermanentDeletion = (permanentlyDeletedAt) => {
+  const now = new Date();
+  const expiration = new Date(permanentlyDeletedAt);
+  const diffTime = expiration - now;
+  return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 };
 
 // Main store API
@@ -100,21 +118,29 @@ export const store = {
       throw error;
     }
 
-    // Migrate data if needed (for future versions)
+    // Migrate data if needed
     if (data.version !== STORAGE_VERSION) {
-      // For now, just update version
-      data.version = STORAGE_VERSION;
-      saveToStorage(data);
+      // Handle migration from 1.0 to 1.1 - add soft delete fields if missing
+      if (data.version === '1.0') {
+        // No specific migration needed - soft delete fields will be added when items are updated
+        data.version = STORAGE_VERSION;
+        saveToStorage(data);
+      }
     }
+
+    // Run periodic cleanup of expired items (simulates background job)
+    data = store.purgeExpiredItems(data);
 
     return data;
   },
 
   // Patient operations
-  getPatients: (data) => data.patients,
+  getPatients: (data) => data.patients.filter(p => !p.deleted_at),
 
-  getPatientById: (data, patientId) =>
-    data.patients.find(p => p.id === patientId),
+  getPatientById: (data, patientId) => {
+    const patient = data.patients.find(p => p.id === patientId);
+    return patient && !patient.deleted_at ? patient : null;
+  },
 
   addPatient: (data, patientData, options = {}) => {
     const normalizedFirstName = patientData.firstName.toLowerCase().trim();
@@ -181,10 +207,28 @@ export const store = {
     return newData;
   },
 
-  deletePatient: (data, patientId) => {
-    // Remove patient and all associated sessions
-    const newPatients = data.patients.filter(p => p.id !== patientId);
-    const newSessions = data.sessions.filter(s => s.patientId !== patientId);
+  softDeletePatient: (data, patientId) => {
+    const now = new Date().toISOString();
+    const permanentlyDeletedAt = getPermanentlyDeletedAt(now);
+
+    // Soft delete patient
+    const newPatients = data.patients.map(p =>
+      p.id === patientId
+        ? { ...p, deleted_at: now, permanently_deleted_at: permanentlyDeletedAt }
+        : p
+    );
+
+    // Soft delete all active sessions for this patient
+    const newSessions = data.sessions.map(s =>
+      s.patientId === patientId && !s.deleted_at
+        ? {
+            ...s,
+            deleted_at: now,
+            permanently_deleted_at: permanentlyDeletedAt,
+            deleted_with_patient_id: patientId
+          }
+        : s
+    );
 
     const newData = {
       ...data,
@@ -196,14 +240,21 @@ export const store = {
     return newData;
   },
 
+  deletePatient: (data, patientId) => {
+    // For backward compatibility, this now calls softDeletePatient
+    return store.softDeletePatient(data, patientId);
+  },
+
   // Session operations
   getSessionsForPatient: (data, patientId) =>
     data.sessions
-      .filter(s => s.patientId === patientId)
+      .filter(s => s.patientId === patientId && !s.deleted_at)
       .sort((a, b) => new Date(b.sessionDate) - new Date(a.sessionDate)),
 
-  getSessionById: (data, sessionId) =>
-    data.sessions.find(s => s.id === sessionId),
+  getSessionById: (data, sessionId) => {
+    const session = data.sessions.find(s => s.id === sessionId);
+    return session && !session.deleted_at ? session : null;
+  },
 
   addSession: (data, sessionData) => {
     const newSession = {
@@ -285,7 +336,122 @@ export const store = {
     return newData;
   },
 
+  softDeleteSession: (data, sessionId) => {
+    const sessionIndex = data.sessions.findIndex(s => s.id === sessionId);
+    if (sessionIndex === -1) {
+      throw new Error('Session not found');
+    }
+
+    const now = new Date().toISOString();
+    const permanentlyDeletedAt = getPermanentlyDeletedAt(now);
+
+    const newSessions = [...data.sessions];
+    newSessions[sessionIndex] = {
+      ...newSessions[sessionIndex],
+      deleted_at: now,
+      permanently_deleted_at: permanentlyDeletedAt
+    };
+
+    // Update patient cache
+    const newPatients = data.patients.map(patient => {
+      if (patient.id === newSessions[sessionIndex].patientId) {
+        return updatePatientCache(patient, newSessions);
+      }
+      return patient;
+    });
+
+    const newData = {
+      ...data,
+      patients: newPatients,
+      sessions: newSessions
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
   deleteSession: (data, sessionId) => {
+    // For backward compatibility, this now calls softDeleteSession
+    return store.softDeleteSession(data, sessionId);
+  },
+
+  // Soft delete operations
+  restorePatient: (data, patientId) => {
+    const newPatients = data.patients.map(p =>
+      p.id === patientId
+        ? { ...p, deleted_at: null, permanently_deleted_at: null }
+        : p
+    );
+
+    // Also restore sessions that were deleted with this patient
+    const newSessions = data.sessions.map(s =>
+      s.deleted_with_patient_id === patientId
+        ? { ...s, deleted_at: null, permanently_deleted_at: null, deleted_with_patient_id: null }
+        : s
+    );
+
+    // Update patient cache
+    const finalPatients = newPatients.map(patient =>
+      patient.id === patientId ? updatePatientCache(patient, newSessions) : patient
+    );
+
+    const newData = {
+      ...data,
+      patients: finalPatients,
+      sessions: newSessions
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  restoreSession: (data, sessionId) => {
+    const sessionIndex = data.sessions.findIndex(s => s.id === sessionId);
+    if (sessionIndex === -1) {
+      throw new Error('Session not found');
+    }
+
+    const newSessions = [...data.sessions];
+    newSessions[sessionIndex] = {
+      ...newSessions[sessionIndex],
+      deleted_at: null,
+      permanently_deleted_at: null,
+      deleted_with_patient_id: null
+    };
+
+    // Update patient cache
+    const newPatients = data.patients.map(patient => {
+      if (patient.id === newSessions[sessionIndex].patientId) {
+        return updatePatientCache(patient, newSessions);
+      }
+      return patient;
+    });
+
+    const newData = {
+      ...data,
+      patients: newPatients,
+      sessions: newSessions
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  permanentlyDeletePatient: (data, patientId) => {
+    const newPatients = data.patients.filter(p => p.id !== patientId);
+    const newSessions = data.sessions.filter(s => s.patientId !== patientId);
+
+    const newData = {
+      ...data,
+      patients: newPatients,
+      sessions: newSessions
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  permanentlyDeleteSession: (data, sessionId) => {
     const sessionToDelete = data.sessions.find(s => s.id === sessionId);
     if (!sessionToDelete) {
       throw new Error('Session not found');
@@ -309,6 +475,57 @@ export const store = {
 
     saveToStorage(newData);
     return newData;
+  },
+
+  getRecentlyDeletedPatients: (data) => {
+    return data.patients
+      .filter(p => p.deleted_at)
+      .map(p => ({
+        ...p,
+        daysUntilPermanentDeletion: daysUntilPermanentDeletion(p.permanently_deleted_at)
+      }))
+      .sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at));
+  },
+
+  getRecentlyDeletedSessions: (data) => {
+    return data.sessions
+      .filter(s => s.deleted_at)
+      .map(s => ({
+        ...s,
+        daysUntilPermanentDeletion: daysUntilPermanentDeletion(s.permanently_deleted_at)
+      }))
+      .sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at));
+  },
+
+  purgeExpiredItems: (data) => {
+    const now = new Date();
+    let hasChanges = false;
+
+    const newPatients = data.patients.filter(p => {
+      if (p.permanently_deleted_at && new Date(p.permanently_deleted_at) <= now) {
+        hasChanges = true;
+        return false;
+      }
+      return true;
+    });
+
+    const newSessions = data.sessions.filter(s => {
+      if (s.permanently_deleted_at && new Date(s.permanently_deleted_at) <= now) {
+        hasChanges = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (hasChanges) {
+      return {
+        ...data,
+        patients: newPatients,
+        sessions: newSessions
+      };
+    }
+
+    return data;
   },
 
   // Utility functions

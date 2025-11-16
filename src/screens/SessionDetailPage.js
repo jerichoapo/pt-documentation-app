@@ -9,7 +9,7 @@ const SessionDetailPage = () => {
   const navigate = useNavigate();
   const session = useSession(sessionId);
   const patient = usePatient(session?.patientId ?? '');
-  const { updateSession, deleteSession } = usePatientData();
+  const { updateSession, softDeleteSession } = usePatientData();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedSession, setEditedSession] = useState(null);
@@ -62,9 +62,9 @@ const SessionDetailPage = () => {
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+    if (window.confirm('Move this note to Recently Deleted?')) {
       try {
-        await deleteSession(sessionId);
+        await softDeleteSession(sessionId);
         navigate(`/patients/${patient.id}`);
       } catch (error) {
         console.error('Failed to delete session:', error);
@@ -136,7 +136,7 @@ const SessionDetailPage = () => {
                 className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-medium"
               >
                 <Trash2 size={16} />
-                Delete
+                Delete Note
               </button>
             </>
           ) : (

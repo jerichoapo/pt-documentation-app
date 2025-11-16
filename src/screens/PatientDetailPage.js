@@ -9,7 +9,7 @@ const PatientDetailPage = () => {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const patient = usePatient(patientId);
-  const { deletePatient } = usePatientData();
+  const { softDeletePatient } = usePatientData();
   const allSessions = useSessionsForPatient(patientId);
   const startSession = useStartSession();
 
@@ -36,14 +36,14 @@ const PatientDetailPage = () => {
   const handleDeletePatient = async () => {
     const sessionCount = allSessions.length;
 
-    let confirmMessage = `Delete ${patient.firstName} ${patient.lastName}? This cannot be undone.`;
+    let confirmMessage = `Move ${patient.firstName} ${patient.lastName} to Recently Deleted?`;
     if (sessionCount > 0) {
-      confirmMessage = `Delete ${patient.firstName} ${patient.lastName} and ${sessionCount} session note${sessionCount === 1 ? '' : 's'}? This cannot be undone.`;
+      confirmMessage = `Move ${patient.firstName} ${patient.lastName} and ${sessionCount} session note${sessionCount === 1 ? '' : 's'} to Recently Deleted?`;
     }
 
     if (window.confirm(confirmMessage)) {
       try {
-        await deletePatient(patientId);
+        await softDeletePatient(patientId);
         navigate('/');
       } catch (error) {
         console.error('Failed to delete patient:', error);
@@ -100,7 +100,7 @@ const PatientDetailPage = () => {
             className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-medium"
           >
             <Trash2 size={16} />
-            Delete
+            Delete Patient
           </button>
         </div>
       </div>
