@@ -479,7 +479,7 @@ export const PatientDataProvider = ({ children }) => {
     }
   };
 
-  const restoreSession = async (sessionId) => {
+  const restoreSession = async (sessionId, options = {}) => {
     try {
       const sessionToRestore = state.sessions.find(s => s.id === sessionId && s.deleted_at);
       if (!sessionToRestore) {
@@ -499,8 +499,11 @@ export const PatientDataProvider = ({ children }) => {
         }
       });
 
-      // Show success toast
-      addToast('Note restored successfully', 'success');
+      // Show success toast (unless skipped)
+      if (!options.skipToast) {
+        const toastMessage = options.toastMessage || 'Note restored successfully';
+        addToast(toastMessage, 'success');
+      }
 
       return sessionToRestore;
     } catch (error) {
@@ -624,6 +627,16 @@ export const PatientDataProvider = ({ children }) => {
       sessions: state.sessions
     }, id),
 
+    getDeletedPatientById: (id) => store.getDeletedPatientById({
+      patients: state.patients,
+      sessions: state.sessions
+    }, id),
+
+    getDeletedSessionById: (id) => store.getDeletedSessionById({
+      patients: state.patients,
+      sessions: state.sessions
+    }, id),
+
     getRecentlyDeletedPatients: () => store.getRecentlyDeletedPatients({
       patients: state.patients,
       sessions: state.sessions
@@ -687,4 +700,14 @@ export const useSessionsForPatient = (patientId) => {
 export const useSession = (sessionId) => {
   const { getSessionById } = usePatientData();
   return getSessionById(sessionId);
+};
+
+export const useDeletedPatient = (patientId) => {
+  const { getDeletedPatientById } = usePatientData();
+  return getDeletedPatientById(patientId);
+};
+
+export const useDeletedSession = (sessionId) => {
+  const { getDeletedSessionById } = usePatientData();
+  return getDeletedSessionById(sessionId);
 };

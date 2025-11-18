@@ -6,6 +6,8 @@ import PatientDetailPage from './screens/PatientDetailPage';
 import SessionWizard from './screens/SessionWizard';
 import SessionDetailPage from './screens/SessionDetailPage';
 import RecentlyDeletedPage from './screens/RecentlyDeletedPage';
+import DeletedPatientDetailPage from './screens/DeletedPatientDetailPage';
+import DeletedSessionDetailPage from './screens/DeletedSessionDetailPage';
 import PatientForm from './components/PatientForm';
 import ErrorModal from './components/ErrorModal';
 import { usePatientData } from './context/PatientDataContext';
@@ -75,6 +77,8 @@ const App = () => {
           <Route path="/sessions/new/:patientId/:section?" element={<SessionWizard />} />
           <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
           <Route path="/recently-deleted" element={<RecentlyDeletedPage />} />
+          <Route path="/recently-deleted/patients/:patientId" element={<DeletedPatientDetailPage />} />
+          <Route path="/recently-deleted/sessions/:sessionId" element={<DeletedSessionDetailPage />} />
         </Routes>
       </main>
 

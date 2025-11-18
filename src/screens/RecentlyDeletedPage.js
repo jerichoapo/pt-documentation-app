@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, RotateCcw, Trash2, Calendar, Clock, User, FileText } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
+import { useToastContext } from '../context/ToastContext';
 import { formatDate } from '../utils/sessionFormatting';
+import RestoreNoteDecisionModal from '../components/RestoreNoteDecisionModal';
 
 const RecentlyDeletedPage = () => {
   const {
@@ -11,12 +13,19 @@ const RecentlyDeletedPage = () => {
     restorePatient,
     restoreSession,
     permanentlyDeletePatient,
-    permanentlyDeleteSession
+    permanentlyDeleteSession,
+    getDeletedPatientById
   } = usePatientData();
+  const { addToast } = useToastContext();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('patients');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set());
+
+  // Modal state
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [restoringSession, setRestoringSession] = useState(null);
 
   const patients = useMemo(() => getRecentlyDeletedPatients(), [getRecentlyDeletedPatients]);
   const sessions = useMemo(() => getRecentlyDeletedSessions(), [getRecentlyDeletedSessions]);
@@ -68,11 +77,55 @@ const RecentlyDeletedPage = () => {
       if (activeTab === 'patients') {
         await restorePatient(id);
       } else {
-        await restoreSession(id);
+        // Check if the session's patient is deleted
+        const session = sessions.find(s => s.id === id);
+        const patient = session ? getDeletedPatientById(session.patientId) : null;
+
+        if (patient && patient.deleted_at) {
+          // Show decision modal
+          setRestoringSession(session);
+          setRestoreModalOpen(true);
+        } else {
+          // Patient not deleted, restore session normally
+          await restoreSession(id);
+        }
       }
     } catch (error) {
       // Error handled by context
     }
+  };
+
+  const handleModalConfirm = async (selectedOption) => {
+    if (!restoringSession) return;
+
+    try {
+      const patient = getDeletedPatientById(restoringSession.patientId);
+      const patientName = `${patient.firstName} ${patient.lastName}`;
+
+      if (selectedOption === 'note-only') {
+        // Restore only the note
+        await restoreSession(restoringSession.id, {
+          skipToast: true // Skip default toast, show custom one
+        });
+        addToast(`Note restored successfully. This note won't appear in ${patientName}'s profile until the patient is restored.`, 'success');
+        // Stay on Recently Deleted page
+      } else {
+        // Restore note and patient
+        await restorePatient(patient.id);
+        // Navigate to patient profile (existing restorePatient handles the toast)
+        navigate(`/patients/${patient.id}`);
+      }
+    } catch (error) {
+      // Error handled by context
+    } finally {
+      setRestoreModalOpen(false);
+      setRestoringSession(null);
+    }
+  };
+
+  const handleModalCancel = () => {
+    setRestoreModalOpen(false);
+    setRestoringSession(null);
   };
 
   const handlePermanentDelete = async (id) => {
@@ -301,9 +354,12 @@ const RecentlyDeletedPage = () => {
                           <>
                             <User className="text-gray-400" size={20} />
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
+                              <Link
+                                to={`/recently-deleted/patients/${item.id}`}
+                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                              >
                                 {item.firstName} {item.lastName}
-                              </div>
+                              </Link>
                               {item.diagnosis && (
                                 <div className="text-sm text-gray-600">{item.diagnosis}</div>
                               )}
@@ -313,9 +369,12 @@ const RecentlyDeletedPage = () => {
                           <>
                             <FileText className="text-gray-400" size={20} />
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
+                              <Link
+                                to={`/recently-deleted/sessions/${item.id}`}
+                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                              >
                                 Session on {formatDate(new Date(item.sessionDate))}
-                              </div>
+                              </Link>
                               <div className="text-sm text-gray-600">
                                 {item.subjective?.substring(0, 50)}
                                 {item.subjective?.length > 50 && '...'}
@@ -361,6 +420,25 @@ const RecentlyDeletedPage = () => {
           </div>
         )}
       </div>
+
+      {/* Restore Decision Modal */}
+      {restoringSession && (
+        <RestoreNoteDecisionModal
+          isOpen={restoreModalOpen}
+          onClose={handleModalCancel}
+          onConfirm={handleModalConfirm}
+          patientName={(() => {
+            const patient = getDeletedPatientById(restoringSession.patientId);
+            return patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient';
+          })()}
+          additionalNotesCount={(() => {
+            if (!restoringSession) return 0;
+            const patient = getDeletedPatientById(restoringSession.patientId);
+            if (!patient) return 0;
+            return sessions.filter(s => s.patientId === patient.id && s.deleted_with_patient_id === patient.id).length;
+          })()}
+        />
+      )}
     </div>
   );
 };

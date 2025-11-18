@@ -142,6 +142,11 @@ export const store = {
     return patient && !patient.deleted_at ? patient : null;
   },
 
+  getDeletedPatientById: (data, patientId) => {
+    const patient = data.patients.find(p => p.id === patientId);
+    return patient && patient.deleted_at ? patient : null;
+  },
+
   addPatient: (data, patientData, options = {}) => {
     const normalizedFirstName = patientData.firstName.toLowerCase().trim();
     const normalizedLastName = patientData.lastName.toLowerCase().trim();
@@ -254,6 +259,11 @@ export const store = {
   getSessionById: (data, sessionId) => {
     const session = data.sessions.find(s => s.id === sessionId);
     return session && !session.deleted_at ? session : null;
+  },
+
+  getDeletedSessionById: (data, sessionId) => {
+    const session = data.sessions.find(s => s.id === sessionId);
+    return session && session.deleted_at ? session : null;
   },
 
   addSession: (data, sessionData) => {
