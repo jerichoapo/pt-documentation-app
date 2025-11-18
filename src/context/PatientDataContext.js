@@ -684,7 +684,7 @@ export const usePatientData = () => {
 // Convenience hooks
 export const usePatients = () => {
   const { patients } = usePatientData();
-  return patients;
+  return patients.filter(p => !p.deleted_at);
 };
 
 export const usePatient = (patientId) => {
