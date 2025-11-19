@@ -29,6 +29,7 @@ const patientDataReducer = (state, action) => {
         ...state,
         patients: action.payload.patients,
         sessions: action.payload.sessions,
+        schools: action.payload.schools,
         isLoading: false,
         error: null
       };
@@ -135,6 +136,7 @@ const patientDataReducer = (state, action) => {
 const initialState = {
   patients: [],
   sessions: [],
+  schools: [],
   isLoading: true,
   error: null
 };
@@ -155,7 +157,8 @@ export const PatientDataProvider = ({ children }) => {
         type: ACTIONS.LOAD_DATA,
         payload: {
           patients: data.patients,
-          sessions: data.sessions
+          sessions: data.sessions,
+          schools: data.schools
         }
       });
     } catch (error) {
@@ -182,7 +185,8 @@ export const PatientDataProvider = ({ children }) => {
     try {
       const newData = store.addPatient({
         patients: state.patients,
-        sessions: state.sessions
+        sessions: state.sessions,
+        schools: state.schools
       }, patientData, options);
 
       dispatch({
@@ -214,7 +218,8 @@ export const PatientDataProvider = ({ children }) => {
     try {
       const newData = store.updatePatient({
         patients: state.patients,
-        sessions: state.sessions
+        sessions: state.sessions,
+        schools: state.schools
       }, patientId, updates);
 
       dispatch({
@@ -588,11 +593,19 @@ export const PatientDataProvider = ({ children }) => {
     dispatch({ type: ACTIONS.CLEAR_ERROR });
   };
 
+  const getSchoolSuggestions = (query, limit = 10) => {
+    return store.getSchoolSuggestions({
+      patients: state.patients,
+      sessions: state.sessions,
+      schools: state.schools
+    }, query, limit);
+  };
+
   const clearAllData = () => {
     store.clearAllData();
     dispatch({
       type: ACTIONS.LOAD_DATA,
-      payload: { patients: [], sessions: [] }
+      payload: { patients: [], sessions: [], schools: [] }
     });
   };
 
@@ -608,6 +621,7 @@ export const PatientDataProvider = ({ children }) => {
     // State
     patients: state.patients,
     sessions: state.sessions,
+    schools: state.schools,
     isLoading: state.isLoading,
     error: state.error,
 
@@ -646,6 +660,8 @@ export const PatientDataProvider = ({ children }) => {
       patients: state.patients,
       sessions: state.sessions
     }),
+
+    getSchoolSuggestions,
 
     // Actions
     addPatient,

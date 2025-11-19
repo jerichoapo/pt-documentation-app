@@ -1,13 +1,14 @@
 // Data store for managing patients and sessions with localStorage persistence
 
 const STORAGE_KEY = 'ptAppData';
-const STORAGE_VERSION = '1.1';
+const STORAGE_VERSION = '1.2';
 
 // Default empty data structure
 const createEmptyData = () => ({
   version: STORAGE_VERSION,
   patients: [],
-  sessions: []
+  sessions: [],
+  schools: []
 });
 
 // Storage utilities with error handling
@@ -21,7 +22,7 @@ const loadFromStorage = () => {
     const parsed = JSON.parse(stored);
 
     // Basic data integrity check
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.patients) || !Array.isArray(parsed.sessions)) {
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.patients) || !Array.isArray(parsed.sessions) || !Array.isArray(parsed.schools)) {
       console.error('Data corruption detected in localStorage');
       // Return empty data and let the app handle recovery UI
       return null; // Signal corruption
@@ -94,6 +95,54 @@ const daysUntilPermanentDeletion = (permanentlyDeletedAt) => {
   return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 };
 
+// School management utilities
+const normalizeString = (str) => str.toLowerCase().trim();
+
+const calculateLevenshteinDistance = (str1, str2) => {
+  const matrix = [];
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  return matrix[str2.length][str1.length];
+};
+
+const fuzzyMatch = (query, target, threshold = 0.6) => {
+  const queryNorm = normalizeString(query);
+  const targetNorm = normalizeString(target);
+
+  // Exact match gets highest score
+  if (queryNorm === targetNorm) return 1;
+
+  // Contains match gets high score
+  if (targetNorm.includes(queryNorm)) return 0.9;
+
+  // Start of string match gets good score
+  if (targetNorm.startsWith(queryNorm)) return 0.8;
+
+  // Calculate Levenshtein distance for fuzzy matching
+  const distance = calculateLevenshteinDistance(queryNorm, targetNorm);
+  const maxLength = Math.max(queryNorm.length, targetNorm.length);
+  const similarity = 1 - (distance / maxLength);
+
+  return similarity >= threshold ? similarity : 0;
+};
+
 // Main store API
 export const store = {
   // Initialize store and return current data
@@ -126,6 +175,12 @@ export const store = {
         data.version = STORAGE_VERSION;
         saveToStorage(data);
       }
+      // Handle migration from 1.1 to 1.2 - add schools array
+      else if (data.version === '1.1') {
+        data.schools = [];
+        data.version = STORAGE_VERSION;
+        saveToStorage(data);
+      }
     }
 
     // Run periodic cleanup of expired items (simulates background job)
@@ -136,6 +191,64 @@ export const store = {
 
   // Patient operations
   getPatients: (data) => data.patients.filter(p => !p.deleted_at),
+
+  // School operations
+  getSchools: (data) => data.schools,
+
+  addOrUpdateSchool: (data, schoolName) => {
+    const normalizedName = normalizeString(schoolName);
+    const existingSchoolIndex = data.schools.findIndex(s =>
+      normalizeString(s.name) === normalizedName
+    );
+
+    let newSchools;
+    if (existingSchoolIndex >= 0) {
+      // Update existing school usage count
+      newSchools = [...data.schools];
+      newSchools[existingSchoolIndex] = {
+        ...newSchools[existingSchoolIndex],
+        usage_count: newSchools[existingSchoolIndex].usage_count + 1
+      };
+    } else {
+      // Add new school
+      const newSchool = {
+        id: generateId(),
+        name: schoolName.trim(),
+        usage_count: 1,
+        created_at: new Date().toISOString()
+      };
+      newSchools = [...data.schools, newSchool];
+    }
+
+    const newData = {
+      ...data,
+      schools: newSchools
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  getSchoolSuggestions: (data, query, limit = 10) => {
+    if (!query || query.trim().length < 2) return [];
+
+    const queryTrimmed = query.trim();
+    const matches = data.schools
+      .map(school => ({
+        ...school,
+        score: fuzzyMatch(queryTrimmed, school.name)
+      }))
+      .filter(match => match.score > 0)
+      .sort((a, b) => {
+        // Sort by score descending, then by usage_count descending, then alphabetically
+        if (a.score !== b.score) return b.score - a.score;
+        if (a.usage_count !== b.usage_count) return b.usage_count - a.usage_count;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, limit);
+
+    return matches;
+  },
 
   getPatientById: (data, patientId) => {
     const patient = data.patients.find(p => p.id === patientId);
@@ -164,6 +277,12 @@ export const store = {
       }
     }
 
+    // Add school to schools collection if provided
+    let updatedData = data;
+    if (patientData.school && patientData.school.trim()) {
+      updatedData = store.addOrUpdateSchool(data, patientData.school);
+    }
+
     const newPatient = {
       id: generateId(),
       firstName: patientData.firstName.trim(),
@@ -173,6 +292,8 @@ export const store = {
       guardianName: patientData.guardianName?.trim() || '',
       guardianPhone: patientData.guardianPhone?.trim() || '',
       notes: patientData.notes?.trim() || '',
+      grade: patientData.grade || '',
+      school: patientData.school?.trim() || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lastSessionDate: null,
@@ -180,8 +301,8 @@ export const store = {
     };
 
     const newData = {
-      ...data,
-      patients: [...data.patients, newPatient]
+      ...updatedData,
+      patients: [...updatedData.patients, newPatient]
     };
 
     saveToStorage(newData);
@@ -194,17 +315,29 @@ export const store = {
       throw new Error('Patient not found');
     }
 
+    const existingPatient = data.patients[patientIndex];
+
+    // Handle school changes - decrement old school usage, increment new school usage
+    let updatedData = data;
+    const oldSchool = existingPatient.school;
+    const newSchool = updates.school;
+
+    if (newSchool && newSchool.trim() && newSchool.trim() !== oldSchool) {
+      // Add/update new school
+      updatedData = store.addOrUpdateSchool(updatedData, newSchool);
+    }
+
     const updatedPatient = {
-      ...data.patients[patientIndex],
+      ...existingPatient,
       ...updates,
       updatedAt: new Date().toISOString()
     };
 
-    const newPatients = [...data.patients];
+    const newPatients = [...updatedData.patients];
     newPatients[patientIndex] = updatedPatient;
 
     const newData = {
-      ...data,
+      ...updatedData,
       patients: newPatients
     };
 

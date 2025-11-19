@@ -6,7 +6,7 @@ import { usePatientData } from '../context/PatientDataContext';
 const PatientForm = () => {
   const { patientId } = useParams();
   const navigate = useNavigate();
-  const { addPatient, updatePatient, getPatientById } = usePatientData();
+  const { addPatient, updatePatient, getPatientById, getSchoolSuggestions } = usePatientData();
 
   const isEditMode = !!patientId;
   const existingPatient = isEditMode ? getPatientById(patientId) : null;
@@ -18,11 +18,21 @@ const PatientForm = () => {
     diagnosis: '',
     guardianName: '',
     guardianPhone: '',
-    notes: ''
+    notes: '',
+    grade: '',
+    school: ''
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [schoolSuggestions, setSchoolSuggestions] = useState([]);
+  const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
+  const [schoolInputValue, setSchoolInputValue] = useState('');
+
+  // Sync school input value with formData.school
+  useEffect(() => {
+    setSchoolInputValue(formData.school);
+  }, [formData.school]);
 
   // Initialize form with existing patient data in edit mode
   useEffect(() => {
@@ -34,7 +44,9 @@ const PatientForm = () => {
         diagnosis: existingPatient.diagnosis || '',
         guardianName: existingPatient.guardianName || '',
         guardianPhone: existingPatient.guardianPhone || '',
-        notes: existingPatient.notes || ''
+        notes: existingPatient.notes || '',
+        grade: existingPatient.grade || '',
+        school: existingPatient.school || ''
       });
     }
   }, [existingPatient]);
@@ -136,7 +148,9 @@ const PatientForm = () => {
         diagnosis: formData.diagnosis,
         guardianName: formData.guardianName,
         guardianPhone: formData.guardianPhone,
-        notes: formData.notes
+        notes: formData.notes,
+        grade: formData.grade,
+        school: formData.school
       });
       return true;
     } catch (error) {
@@ -154,7 +168,9 @@ const PatientForm = () => {
             diagnosis: formData.diagnosis,
             guardianName: formData.guardianName,
             guardianPhone: formData.guardianPhone,
-            notes: formData.notes
+            notes: formData.notes,
+            grade: formData.grade,
+            school: formData.school
           }, { skipDuplicateCheck: true });
           return true;
         }
@@ -182,7 +198,9 @@ const PatientForm = () => {
         diagnosis: formData.diagnosis.trim(),
         guardianName: formData.guardianName.trim(),
         guardianPhone: formData.guardianPhone ? normalizePhoneNumber(formData.guardianPhone) : '',
-        notes: formData.notes.trim()
+        notes: formData.notes.trim(),
+        grade: formData.grade,
+        school: formData.school.trim()
       };
 
       if (isEditMode) {
@@ -201,6 +219,37 @@ const PatientForm = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSchoolInputChange = (value) => {
+    setSchoolInputValue(value);
+    setFormData(prev => ({ ...prev, school: value }));
+
+    // Get suggestions if input is long enough
+    if (value.trim().length >= 2) {
+      const suggestions = getSchoolSuggestions(value.trim(), 10);
+      setSchoolSuggestions(suggestions);
+      setShowSchoolSuggestions(true);
+    } else {
+      setSchoolSuggestions([]);
+      setShowSchoolSuggestions(false);
+    }
+
+    // Clear error when user starts typing
+    if (errors.school) {
+      setErrors(prev => ({ ...prev, school: '' }));
+    }
+  };
+
+  const handleSchoolSuggestionSelect = (suggestion) => {
+    setSchoolInputValue(suggestion.name);
+    setFormData(prev => ({ ...prev, school: suggestion.name }));
+    setShowSchoolSuggestions(false);
+  };
+
+  const handleSchoolInputBlur = () => {
+    // Delay hiding suggestions to allow for click selection
+    setTimeout(() => setShowSchoolSuggestions(false), 150);
   };
 
   const handleInputChange = (field, value) => {
@@ -347,6 +396,63 @@ const PatientForm = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter diagnosis (optional)"
             />
+          </div>
+
+          {/* Grade and School */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Grade
+              </label>
+              <select
+                value={formData.grade}
+                onChange={(e) => handleInputChange('grade', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select grade (optional)</option>
+                <option value="K">K</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                School
+              </label>
+              <input
+                type="text"
+                value={schoolInputValue}
+                onChange={(e) => handleSchoolInputChange(e.target.value)}
+                onBlur={handleSchoolInputBlur}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter school name (optional)"
+              />
+              {showSchoolSuggestions && schoolSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {schoolSuggestions.map((suggestion) => (
+                    <div
+                      key={suggestion.id}
+                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => handleSchoolSuggestionSelect(suggestion)}
+                    >
+                      {suggestion.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Guardian Info */}
