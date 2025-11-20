@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
 import { PatientDataProvider } from './context/PatientDataContext';
+import { ProfileProvider } from './context/ProfileContext';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
@@ -13,7 +14,9 @@ root.render(
     <BrowserRouter>
       <ToastProvider>
         <PatientDataProvider>
-          <App />
+          <ProfileProvider>
+            <App />
+          </ProfileProvider>
         </PatientDataProvider>
       </ToastProvider>
     </BrowserRouter>

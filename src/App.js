@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
+import { User } from 'lucide-react';
 import HomePage from './screens/HomePage';
 import PatientsListPage from './screens/PatientsListPage';
 import PatientDetailPage from './screens/PatientDetailPage';
@@ -8,6 +9,7 @@ import SessionDetailPage from './screens/SessionDetailPage';
 import RecentlyDeletedPage from './screens/RecentlyDeletedPage';
 import DeletedPatientDetailPage from './screens/DeletedPatientDetailPage';
 import DeletedSessionDetailPage from './screens/DeletedSessionDetailPage';
+import ProfilePage from './screens/ProfilePage';
 import PatientForm from './components/PatientForm';
 import ErrorModal from './components/ErrorModal';
 import { usePatientData } from './context/PatientDataContext';
@@ -57,6 +59,13 @@ const App = () => {
                 Recently Deleted
               </Link>
               <Link
+                to="/settings/profile"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                <User size={20} />
+                My Profile
+              </Link>
+              <Link
                 to="/patients/new"
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
               >
@@ -79,6 +88,7 @@ const App = () => {
           <Route path="/recently-deleted" element={<RecentlyDeletedPage />} />
           <Route path="/recently-deleted/patients/:patientId" element={<DeletedPatientDetailPage />} />
           <Route path="/recently-deleted/sessions/:sessionId" element={<DeletedSessionDetailPage />} />
+          <Route path="/settings/profile" element={<ProfilePage />} />
         </Routes>
       </main>
 
