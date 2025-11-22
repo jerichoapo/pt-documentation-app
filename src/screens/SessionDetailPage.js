@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2, Download } from 'lucide-react';
 import { useSession, usePatient, usePatientData } from '../context/PatientDataContext';
+import { useProfile } from '../context/ProfileContext';
+import { useToastContext } from '../context/ToastContext';
 import { formatDate, formatTime, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
+import { exportSingleNoteToPDF, exportSingleNoteToDOCX } from '../utils/exportNotes';
+import ExportFormatModal from '../components/ExportFormatModal';
 
 const SessionDetailPage = () => {
   const { sessionId } = useParams();
@@ -10,10 +14,14 @@ const SessionDetailPage = () => {
   const session = useSession(sessionId);
   const patient = usePatient(session?.patientId ?? '');
   const { updateSession, softDeleteSession } = usePatientData();
+  const { profile } = useProfile();
+  const { addToast } = useToastContext();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedSession, setEditedSession] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Initialize edited session when session loads
   useEffect(() => {
@@ -80,6 +88,23 @@ const SessionDetailPage = () => {
     }));
   };
 
+  const handleExportNote = async (format) => {
+    setIsExporting(true);
+    try {
+      if (format === 'pdf') {
+        await exportSingleNoteToPDF(session, patient, profile);
+      } else if (format === 'docx') {
+        await exportSingleNoteToDOCX(session, patient, profile);
+      }
+      addToast('Note exported successfully!', 'success');
+    } catch (error) {
+      console.error('Failed to export note:', error);
+      addToast('Failed to export note. Please try again.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!session) {
     return (
       <div className="max-w-4xl mx-auto text-center py-12">
@@ -124,6 +149,13 @@ const SessionDetailPage = () => {
         <div className="flex items-center gap-3">
           {!isEditing ? (
             <>
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 font-medium"
+              >
+                <Download size={16} />
+                Download Note
+              </button>
               <button
                 onClick={handleStartEdit}
                 className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 font-medium"
@@ -357,6 +389,14 @@ const SessionDetailPage = () => {
           </div>
         </div>
       </div>
+
+      <ExportFormatModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={handleExportNote}
+        isExporting={isExporting}
+        title="Download Session Note"
+      />
     </div>
   );
 };

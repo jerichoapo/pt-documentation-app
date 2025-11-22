@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git credential-manager:*)"
+      "Bash(git credential-manager:*)",
+      "Bash(npm start)",
+      "Bash(timeout /t 10)"
     ],
     "deny": [],
     "ask": []

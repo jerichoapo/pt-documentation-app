@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText, Clock } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText, Clock, Download } from 'lucide-react';
 import { usePatient, useSessionsForPatient, usePatientData } from '../context/PatientDataContext';
+import { useProfile } from '../context/ProfileContext';
+import { useToastContext } from '../context/ToastContext';
 import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
 import { useStartSession } from '../hooks/useStartSession';
+import { exportBulkNotesToPDF, exportBulkNotesToDOCX } from '../utils/exportNotes';
+import ExportFormatModal from '../components/ExportFormatModal';
 
 const PatientDetailPage = () => {
   const { patientId } = useParams();
@@ -12,9 +16,13 @@ const PatientDetailPage = () => {
   const { softDeletePatient } = usePatientData();
   const allSessions = useSessionsForPatient(patientId);
   const startSession = useStartSession();
+  const { profile } = useProfile();
+  const { addToast } = useToastContext();
 
   const [visibleSessions, setVisibleSessions] = useState(10);
   const sessionsToShow = allSessions.slice(0, visibleSessions);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const calculateAge = (dob) => {
     const birthDate = new Date(dob);
@@ -58,6 +66,23 @@ const PatientDetailPage = () => {
 
   const handleLoadMore = () => {
     setVisibleSessions(prev => prev + 10);
+  };
+
+  const handleExportAllNotes = async (format) => {
+    setIsExporting(true);
+    try {
+      if (format === 'pdf') {
+        await exportBulkNotesToPDF(allSessions, patient, profile);
+      } else if (format === 'docx') {
+        await exportBulkNotesToDOCX(allSessions, patient, profile);
+      }
+      addToast('All notes exported successfully!', 'success');
+    } catch (error) {
+      console.error('Failed to export notes:', error);
+      addToast('Failed to export notes. Please try again.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
 
@@ -156,9 +181,20 @@ const PatientDetailPage = () => {
 
       {/* Session History */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          Session History ({patient.sessionCount || 0} total)
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">
+            Session History ({patient.sessionCount || 0} total)
+          </h2>
+          {allSessions.length > 0 && (
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 font-medium"
+            >
+              <Download size={16} />
+              Download All Notes
+            </button>
+          )}
+        </div>
 
         {allSessions.length === 0 ? (
           <div className="text-center py-12">
@@ -222,6 +258,14 @@ const PatientDetailPage = () => {
           </div>
         )}
       </div>
+
+      <ExportFormatModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={handleExportAllNotes}
+        isExporting={isExporting}
+        title="Download All Session Notes"
+      />
     </div>
   );
 };
