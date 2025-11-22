@@ -133,11 +133,8 @@ const DeletedSessionDetailPage = () => {
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 opacity-75">
         <div className="mb-6 pb-4 border-b-2">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            SOAP Note
-          </h1>
-          <div className="flex items-center gap-2 text-lg text-gray-700 mb-4">
-            <User size={20} />
+          <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <User size={28} />
             {patient ? (
               <>
                 {patient.firstName} {patient.lastName}
@@ -148,7 +145,9 @@ const DeletedSessionDetailPage = () => {
             ) : (
               'Patient not found'
             )}
-            • {patient?.diagnosis || 'No diagnosis'}
+          </h1>
+          <div className="text-lg text-gray-700 mb-4">
+            {patient?.diagnosis || 'No diagnosis'}
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">

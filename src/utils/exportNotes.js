@@ -82,19 +82,12 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
     pageSize: 'LETTER',
     pageMargins: [40, 60, 40, 60],
     content: [
-      // Header
+      // Patient and Session Info
       {
-        text: 'SOAP Note',
+        text: content.patientName,
         style: 'header',
         alignment: 'center',
         margin: [0, 0, 0, 20]
-      },
-
-      // Patient and Session Info
-      {
-        text: `Patient Name: ${content.patientName}`,
-        style: 'subheader',
-        margin: [0, 0, 0, 10]
       },
       {
         text: `Date of Service: ${content.sessionDate}`,
@@ -190,7 +183,7 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
 
   return new Promise((resolve, reject) => {
     try {
-      const fileName = `SOAP_Note_${content.patientName.replace(/\s+/g, '_')}_${content.sessionDate.replace(/\s+/g, '_')}.pdf`;
+      const fileName = `Note_${content.patientName.replace(/\s+/g, '_')}_${content.sessionDate.replace(/\s+/g, '_')}.pdf`;
       pdfMake.createPdf(docDefinition).getBlob(blob => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -222,19 +215,12 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
     }
 
     docContent.push(
-      // Header
+      // Patient and Session Info
       {
-        text: 'SOAP Note',
+        text: sessionContent.patientName,
         style: 'header',
         alignment: 'center',
         margin: [0, 0, 0, 20]
-      },
-
-      // Patient and Session Info
-      {
-        text: `Patient Name: ${sessionContent.patientName}`,
-        style: 'subheader',
-        margin: [0, 0, 0, 10]
       },
       {
         text: `Date of Service: ${sessionContent.sessionDate}`,
@@ -337,7 +323,7 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
 
   return new Promise((resolve, reject) => {
     try {
-      const fileName = `SOAP_Notes_${content.patientName.replace(/\s+/g, '_')}_All_Sessions.pdf`;
+      const fileName = `Notes_${content.patientName.replace(/\s+/g, '_')}_All_Sessions.pdf`;
       pdfMake.createPdf(docDefinition).getBlob(blob => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -361,31 +347,18 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
 
   const children = [];
 
-  // Header
+  // Patient and Session Info
   children.push(
     new Paragraph({
       children: [
         new TextRun({
-          text: 'SOAP Note',
+          text: content.patientName,
           size: 32,
           bold: true
         })
       ],
       alignment: AlignmentType.CENTER,
       spacing: { after: 400 }
-    })
-  );
-
-  // Patient and Session Info
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: `Patient Name: ${content.patientName}`,
-          bold: true
-        })
-      ],
-      spacing: { after: 200 }
     })
   );
 
@@ -477,7 +450,7 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `SOAP_Note_${content.patientName.replace(/\s+/g, '_')}_${content.sessionDate.replace(/\s+/g, '_')}.docx`;
+        a.download = `Note_${content.patientName.replace(/\s+/g, '_')}_${content.sessionDate.replace(/\s+/g, '_')}.docx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -508,31 +481,18 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
       );
     }
 
-    // Header
+    // Patient and Session Info
     children.push(
       new Paragraph({
         children: [
           new TextRun({
-            text: 'SOAP Note',
+            text: sessionContent.patientName,
             size: 32,
             bold: true
           })
         ],
         alignment: AlignmentType.CENTER,
         spacing: { after: 400 }
-      })
-    );
-
-    // Patient and Session Info
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `Patient Name: ${sessionContent.patientName}`,
-            bold: true
-          })
-        ],
-        spacing: { after: 200 }
       })
     );
 
@@ -626,7 +586,7 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `SOAP_Notes_${content.patientName.replace(/\s+/g, '_')}_All_Sessions.docx`;
+        a.download = `Notes_${content.patientName.replace(/\s+/g, '_')}_All_Sessions.docx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

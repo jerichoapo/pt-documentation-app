@@ -506,7 +506,7 @@ const SessionWizard = () => {
 
   const renderReviewStep = () => (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-3xl font-bold text-gray-800 mb-2">Review SOAP Note</h2>
+      <h2 className="text-3xl font-bold text-gray-800 mb-2">Review Note</h2>
       <p className="text-gray-600 mb-6">Review and confirm your documentation before saving</p>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -614,7 +614,7 @@ const SessionWizard = () => {
 
         <h2 className="text-3xl font-bold text-gray-800 mb-4">Session Documented Successfully!</h2>
         <p className="text-lg text-gray-600 mb-8">
-          SOAP note for {patient?.firstName} {patient?.lastName} has been saved to the patient record.
+          Note for {patient?.firstName} {patient?.lastName} has been saved to the patient record.
         </p>
 
         <div className="bg-gray-50 rounded-lg p-6 mb-8">

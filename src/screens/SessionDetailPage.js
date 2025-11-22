@@ -197,10 +197,10 @@ const SessionDetailPage = () => {
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="mb-6 pb-4 border-b-2">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            SOAP Note
+            {patient.firstName} {patient.lastName}
           </h1>
           <p className="text-lg text-gray-700 mb-4">
-            {patient.firstName} {patient.lastName} • {patient.diagnosis}
+            {patient.diagnosis}
           </p>
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">

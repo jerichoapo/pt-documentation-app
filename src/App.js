@@ -42,7 +42,7 @@ const App = () => {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Pediatric Therapy SOAP Notes</h1>
+              <h1 className="text-2xl font-bold text-gray-800">Pediatric Therapy Notes</h1>
               <p className="text-sm text-gray-600">Structured session documentation system</p>
             </div>
             <div className="flex items-center gap-4">
