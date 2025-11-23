@@ -3,7 +3,6 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
-import { customFonts } from './customFonts';
 
 // Initialize pdfMake with fonts
 if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
@@ -80,28 +79,6 @@ const getObjectiveCategoriesText = (categories) => {
 // PDF Export Functions
 export const exportSingleNoteToPDF = async (session, patient, provider) => {
   const content = formatSOAPContent(session, patient, provider);
-
-  // Add custom fonts to VFS
-  pdfMake.vfs = {
-    ...pdfMake.vfs,
-    ...customFonts
-  };
-
-  // Configure custom fonts
-  pdfMake.fonts = {
-    Roboto: {
-      normal: 'Roboto-Regular.ttf',
-      bold: 'Roboto-Medium.ttf',
-      italics: 'Roboto-Italic.ttf',
-      bolditalics: 'Roboto-MediumItalic.ttf'
-    },
-    DancingScript: {
-      normal: 'DancingScript-Regular.ttf',
-      bold: 'DancingScript-Regular.ttf',
-      italics: 'DancingScript-Regular.ttf',
-      bolditalics: 'DancingScript-Regular.ttf'
-    }
-  };
 
   const docDefinition = {
     pageSize: 'LETTER',
@@ -215,7 +192,8 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
       },
       signature: {
         fontSize: 16,
-        font: 'DancingScript',
+        italics: true,
+        decoration: 'underline',
         color: '#333'
       },
       disclaimer: {
@@ -247,28 +225,6 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
 
 export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
   const content = formatSOAPContent(sessions[0], patient, provider);
-
-  // Add custom fonts to VFS
-  pdfMake.vfs = {
-    ...pdfMake.vfs,
-    ...customFonts
-  };
-
-  // Configure custom fonts
-  pdfMake.fonts = {
-    Roboto: {
-      normal: 'Roboto-Regular.ttf',
-      bold: 'Roboto-Medium.ttf',
-      italics: 'Roboto-Italic.ttf',
-      bolditalics: 'Roboto-MediumItalic.ttf'
-    },
-    DancingScript: {
-      normal: 'DancingScript-Regular.ttf',
-      bold: 'DancingScript-Regular.ttf',
-      italics: 'DancingScript-Regular.ttf',
-      bolditalics: 'DancingScript-Regular.ttf'
-    }
-  };
 
   const docContent = [];
 
@@ -396,7 +352,8 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
       },
       signature: {
         fontSize: 16,
-        font: 'DancingScript',
+        italics: true,
+        decoration: 'underline',
         color: '#333'
       },
       disclaimer: {
