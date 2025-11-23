@@ -377,7 +377,6 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
   // SOAP Sections
   const sections = [
     { title: 'SUBJECTIVE', content: content.subjective },
-    { title: 'OBJECTIVE', content: getObjectiveCategoriesText(content.objective.categories) + content.objective.notes },
     { title: 'ASSESSMENT', content: content.assessment },
     { title: 'PLAN', content: content.plan }
   ];
@@ -408,6 +407,52 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
       })
     );
   });
+
+  // Add OBJECTIVE section separately with proper line breaks
+  const objectiveIndex = children.findIndex(p =>
+    p.children && p.children[0] && p.children[0].text === 'ASSESSMENT'
+  ) - 1;
+
+  const categoriesText = getObjectiveCategoriesText(content.objective.categories);
+  const objectiveChildren = [];
+
+  if (categoriesText) {
+    objectiveChildren.push(
+      new TextRun({
+        text: categoriesText.replace(/\n+$/, ''),
+        size: 22
+      }),
+      new TextRun({
+        text: '',
+        break: 1,
+        size: 22
+      })
+    );
+  }
+
+  objectiveChildren.push(
+    new TextRun({
+      text: content.objective.notes,
+      size: 22
+    })
+  );
+
+  children.splice(objectiveIndex, 0,
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: 'OBJECTIVE',
+          bold: true,
+          size: 24
+        })
+      ],
+      spacing: { after: 200 }
+    }),
+    new Paragraph({
+      children: objectiveChildren,
+      spacing: { after: 400 }
+    })
+  );
 
   // Provider Info
   children.push(
@@ -511,7 +556,6 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
     // SOAP Sections
     const sections = [
       { title: 'SUBJECTIVE', content: sessionContent.subjective },
-      { title: 'OBJECTIVE', content: getObjectiveCategoriesText(sessionContent.objective.categories) + sessionContent.objective.notes },
       { title: 'ASSESSMENT', content: sessionContent.assessment },
       { title: 'PLAN', content: sessionContent.plan }
     ];
@@ -542,6 +586,52 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
         })
       );
     });
+
+    // Add OBJECTIVE section separately with proper line breaks
+    const objectiveIndex = children.findIndex(p =>
+      p.children && p.children[0] && p.children[0].text === 'ASSESSMENT'
+    ) - 1;
+
+    const categoriesText = getObjectiveCategoriesText(sessionContent.objective.categories);
+    const objectiveChildren = [];
+
+    if (categoriesText) {
+      objectiveChildren.push(
+        new TextRun({
+          text: categoriesText.replace(/\n+$/, ''),
+          size: 22
+        }),
+        new TextRun({
+          text: '',
+          break: 1,
+          size: 22
+        })
+      );
+    }
+
+    objectiveChildren.push(
+      new TextRun({
+        text: sessionContent.objective.notes,
+        size: 22
+      })
+    );
+
+    children.splice(objectiveIndex, 0,
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'OBJECTIVE',
+            bold: true,
+            size: 24
+          })
+        ],
+        spacing: { after: 200 }
+      }),
+      new Paragraph({
+        children: objectiveChildren,
+        spacing: { after: 400 }
+      })
+    );
 
     // Provider Info
     children.push(
