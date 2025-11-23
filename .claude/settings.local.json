@@ -3,7 +3,17 @@
     "allow": [
       "Bash(git credential-manager:*)",
       "Bash(npm start)",
-      "Bash(timeout /t 10)"
+      "Bash(timeout /t 10)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(tar:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(node -e:*)",
+      "Bash(node generate-font-vfs.js:*)",
+      "Bash(node -c:*)",
+      "Bash(dir:*)",
+      "Bash(node encode-fonts.js:*)",
+      "Bash(del encode-fonts.js)"
     ],
     "deny": [],
     "ask": []

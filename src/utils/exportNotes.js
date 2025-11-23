@@ -3,6 +3,7 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import { customFonts } from './customFonts';
 
 // Initialize pdfMake with fonts
 if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
@@ -26,6 +27,7 @@ const formatSOAPContent = (session, patient, provider) => {
   const providerName = provider ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim() : 'N/A';
   const credentials = provider?.credentials ? `, ${provider.credentials.join(', ')}` : '';
   const licenseNumber = provider?.license ? `License Number: ${provider.license}` : '';
+  const signatureName = providerName !== 'N/A' ? providerName : '';
 
   return {
     patientName: `${patient.firstName} ${patient.lastName}`,
@@ -39,6 +41,7 @@ const formatSOAPContent = (session, patient, provider) => {
     assessment: session.assessment || 'N/A',
     plan: session.plan || 'N/A',
     providerName: `${providerName}${credentials}`,
+    signatureName,
     licenseNumber
   };
 };
@@ -77,6 +80,28 @@ const getObjectiveCategoriesText = (categories) => {
 // PDF Export Functions
 export const exportSingleNoteToPDF = async (session, patient, provider) => {
   const content = formatSOAPContent(session, patient, provider);
+
+  // Add custom fonts to VFS
+  pdfMake.vfs = {
+    ...pdfMake.vfs,
+    ...customFonts
+  };
+
+  // Configure custom fonts
+  pdfMake.fonts = {
+    Roboto: {
+      normal: 'Roboto-Regular.ttf',
+      bold: 'Roboto-Medium.ttf',
+      italics: 'Roboto-Italic.ttf',
+      bolditalics: 'Roboto-MediumItalic.ttf'
+    },
+    DancingScript: {
+      normal: 'DancingScript-Regular.ttf',
+      bold: 'DancingScript-Regular.ttf',
+      italics: 'DancingScript-Regular.ttf',
+      bolditalics: 'DancingScript-Regular.ttf'
+    }
+  };
 
   const docDefinition = {
     pageSize: 'LETTER',
@@ -147,8 +172,18 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
         margin: [0, 20, 0, 5]
       },
       {
+        text: content.signatureName,
+        style: 'signature',
+        margin: [0, 5, 0, 5]
+      },
+      {
         text: content.licenseNumber,
-        style: 'providerInfo'
+        style: 'providerInfo',
+        margin: [0, 0, 0, 5]
+      },
+      {
+        text: 'Electronically signed',
+        style: 'disclaimer'
       }
     ],
     styles: {
@@ -177,6 +212,15 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
         fontSize: 12,
         italics: true,
         color: '#666'
+      },
+      signature: {
+        fontSize: 16,
+        font: 'DancingScript',
+        color: '#333'
+      },
+      disclaimer: {
+        fontSize: 9,
+        color: '#999'
       }
     }
   };
@@ -203,6 +247,28 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
 
 export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
   const content = formatSOAPContent(sessions[0], patient, provider);
+
+  // Add custom fonts to VFS
+  pdfMake.vfs = {
+    ...pdfMake.vfs,
+    ...customFonts
+  };
+
+  // Configure custom fonts
+  pdfMake.fonts = {
+    Roboto: {
+      normal: 'Roboto-Regular.ttf',
+      bold: 'Roboto-Medium.ttf',
+      italics: 'Roboto-Italic.ttf',
+      bolditalics: 'Roboto-MediumItalic.ttf'
+    },
+    DancingScript: {
+      normal: 'DancingScript-Regular.ttf',
+      bold: 'DancingScript-Regular.ttf',
+      italics: 'DancingScript-Regular.ttf',
+      bolditalics: 'DancingScript-Regular.ttf'
+    }
+  };
 
   const docContent = [];
 
@@ -280,8 +346,18 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
         margin: [0, 20, 0, 5]
       },
       {
+        text: sessionContent.signatureName,
+        style: 'signature',
+        margin: [0, 5, 0, 5]
+      },
+      {
         text: sessionContent.licenseNumber,
         style: 'providerInfo',
+        margin: [0, 0, 0, 5]
+      },
+      {
+        text: 'Electronically signed',
+        style: 'disclaimer',
         margin: [0, 0, 0, 30] // Extra margin for separation
       }
     );
@@ -317,6 +393,15 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
         fontSize: 12,
         italics: true,
         color: '#666'
+      },
+      signature: {
+        fontSize: 16,
+        font: 'DancingScript',
+        color: '#333'
+      },
+      disclaimer: {
+        fontSize: 9,
+        color: '#999'
       }
     }
   };
@@ -468,6 +553,23 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
     })
   );
 
+  // Signature
+  if (content.signatureName) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: content.signatureName,
+            font: 'Brush Script MT',
+            size: 32,
+            italics: true
+          })
+        ],
+        spacing: { after: 100 }
+      })
+    );
+  }
+
   if (content.licenseNumber) {
     children.push(
       new Paragraph({
@@ -477,10 +579,24 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
             italics: true,
             size: 22
           })
-        ]
+        ],
+        spacing: { after: 100 }
       })
     );
   }
+
+  // Disclaimer
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: 'Electronically signed',
+          size: 18,
+          color: '999999'
+        })
+      ]
+    })
+  );
 
   const doc = new Document({
     sections: [{
@@ -647,6 +763,23 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
       })
     );
 
+    // Signature
+    if (sessionContent.signatureName) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: sessionContent.signatureName,
+              font: 'Brush Script MT',
+              size: 32,
+              italics: true
+            })
+          ],
+          spacing: { after: 100 }
+        })
+      );
+    }
+
     if (sessionContent.licenseNumber) {
       children.push(
         new Paragraph({
@@ -657,10 +790,24 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
               size: 22
             })
           ],
-          spacing: { after: 600 } // Extra spacing for session separation
+          spacing: { after: 100 }
         })
       );
     }
+
+    // Disclaimer
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'Electronically signed',
+            size: 18,
+            color: '999999'
+          })
+        ],
+        spacing: { after: 600 } // Extra spacing for session separation
+      })
+    );
   });
 
   const doc = new Document({
