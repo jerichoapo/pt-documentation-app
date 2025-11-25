@@ -186,11 +186,9 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
         color: '#333'
       },
       sectionHeader: {
-        fontSize: 16,
+        fontSize: 12,
         bold: true,
-        color: '#333',
-        background: '#f0f0f0',
-        padding: 5
+        color: '#333'
       },
       bodyText: {
         fontSize: 12,
@@ -355,11 +353,9 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
         color: '#333'
       },
       sectionHeader: {
-        fontSize: 16,
+        fontSize: 12,
         bold: true,
-        color: '#333',
-        background: '#f0f0f0',
-        padding: 5
+        color: '#333'
       },
       bodyText: {
         fontSize: 12,
