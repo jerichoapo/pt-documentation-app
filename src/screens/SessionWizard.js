@@ -356,7 +356,7 @@ const SessionWizard = () => {
         </div>
 
         <div className="mb-6">
-          <h4 className="text-md font-semibold text-gray-700 mb-3">Assessment Categories</h4>
+          <h4 className="text-md font-semibold text-gray-700 mb-3">Objective Categories</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {objectiveOptions.map(option => (
               <button

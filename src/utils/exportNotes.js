@@ -56,7 +56,7 @@ const formatTime = (timeString) => {
 };
 
 // Helper function to get objective categories text
-const getObjectiveCategoriesText = (categories) => {
+const getObjectiveCategoriesText = (categories, lineBreaks = '\n\n') => {
   if (!categories || Object.values(categories).every(val => !val)) {
     return '';
   }
@@ -73,7 +73,7 @@ const getObjectiveCategoriesText = (categories) => {
     .filter(([key, isSelected]) => isSelected)
     .map(([key]) => categoryLabels[key] || key);
 
-  return activeCategories.length > 0 ? `Assessment Categories: ${activeCategories.join(', ')}\n\n` : '';
+  return activeCategories.length > 0 ? `Objective Categories: ${activeCategories.join(', ')}${lineBreaks}` : '';
 };
 
 // PDF Export Functions
@@ -115,7 +115,7 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
         margin: [0, 0, 0, 10]
       },
       {
-        text: getObjectiveCategoriesText(content.objective.categories) + content.objective.notes,
+        text: getObjectiveCategoriesText(content.objective.categories, '\n') + content.objective.notes,
         style: 'bodyText',
         margin: [0, 0, 0, 20]
       },
@@ -268,7 +268,7 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
         margin: [0, 0, 0, 10]
       },
       {
-        text: getObjectiveCategoriesText(sessionContent.objective.categories) + sessionContent.objective.notes,
+        text: getObjectiveCategoriesText(sessionContent.objective.categories, '\n') + sessionContent.objective.notes,
         style: 'bodyText',
         margin: [0, 0, 0, 20]
       },
@@ -419,6 +419,7 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
   // SOAP Sections
   const sections = [
     { title: 'SUBJECTIVE', content: content.subjective },
+    { title: 'OBJECTIVE', content: null }, // Special handling for objective
     { title: 'ASSESSMENT', content: content.assessment },
     { title: 'PLAN', content: content.plan }
   ];
@@ -437,64 +438,52 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
       })
     );
 
-    children.push(
-      new Paragraph({
-        children: [
+      if (section.title === 'OBJECTIVE') {
+        // Handle objective section with categories
+        const categoriesText = getObjectiveCategoriesText(content.objective.categories, '\n');
+        const objectiveChildren = [];
+
+        if (categoriesText) {
+          objectiveChildren.push(
+            new TextRun({
+              text: categoriesText.replace(/\n+$/, ''),
+              size: 22
+            }),
+            new TextRun({
+              text: '',
+              break: 1,
+              size: 22
+            })
+          );
+        }
+
+        objectiveChildren.push(
           new TextRun({
-            text: section.content,
+            text: content.objective.notes,
             size: 22
           })
-        ],
-        spacing: { after: 400 }
-      })
-    );
-  });
+        );
 
-  // Add OBJECTIVE section separately with proper line breaks
-  const objectiveIndex = children.findIndex(p =>
-    p.children && p.children[0] && p.children[0].text === 'ASSESSMENT'
-  ) - 1;
-
-  const categoriesText = getObjectiveCategoriesText(content.objective.categories);
-  const objectiveChildren = [];
-
-  if (categoriesText) {
-    objectiveChildren.push(
-      new TextRun({
-        text: categoriesText.replace(/\n+$/, ''),
-        size: 22
-      }),
-      new TextRun({
-        text: '',
-        break: 1,
-        size: 22
-      })
-    );
-  }
-
-  objectiveChildren.push(
-    new TextRun({
-      text: content.objective.notes,
-      size: 22
-    })
-  );
-
-  children.splice(objectiveIndex, 0,
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: 'OBJECTIVE',
-          bold: true,
-          size: 24
+      children.push(
+        new Paragraph({
+          children: objectiveChildren,
+          spacing: { after: 400 }
         })
-      ],
-      spacing: { after: 200 }
-    }),
-    new Paragraph({
-      children: objectiveChildren,
-      spacing: { after: 400 }
-    })
-  );
+      );
+    } else {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: section.content,
+              size: 22
+            })
+          ],
+          spacing: { after: 400 }
+        })
+      );
+    }
+  });
 
   // Provider Info
   children.push(
@@ -629,6 +618,7 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
     // SOAP Sections
     const sections = [
       { title: 'SUBJECTIVE', content: sessionContent.subjective },
+      { title: 'OBJECTIVE', content: null }, // Special handling for objective
       { title: 'ASSESSMENT', content: sessionContent.assessment },
       { title: 'PLAN', content: sessionContent.plan }
     ];
@@ -647,64 +637,52 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
         })
       );
 
-      children.push(
-        new Paragraph({
-          children: [
+      if (section.title === 'OBJECTIVE') {
+        // Handle objective section with categories
+        const categoriesText = getObjectiveCategoriesText(sessionContent.objective.categories, '\n');
+        const objectiveChildren = [];
+
+        if (categoriesText) {
+          objectiveChildren.push(
             new TextRun({
-              text: section.content,
+              text: categoriesText.replace(/\n+$/, ''),
+              size: 22
+            }),
+            new TextRun({
+              text: '',
+              break: 1,
               size: 22
             })
-          ],
-          spacing: { after: 400 }
-        })
-      );
-    });
+          );
+        }
 
-    // Add OBJECTIVE section separately with proper line breaks
-    const objectiveIndex = children.findIndex(p =>
-      p.children && p.children[0] && p.children[0].text === 'ASSESSMENT'
-    ) - 1;
-
-    const categoriesText = getObjectiveCategoriesText(sessionContent.objective.categories);
-    const objectiveChildren = [];
-
-    if (categoriesText) {
-      objectiveChildren.push(
-        new TextRun({
-          text: categoriesText.replace(/\n+$/, ''),
-          size: 22
-        }),
-        new TextRun({
-          text: '',
-          break: 1,
-          size: 22
-        })
-      );
-    }
-
-    objectiveChildren.push(
-      new TextRun({
-        text: sessionContent.objective.notes,
-        size: 22
-      })
-    );
-
-    children.splice(objectiveIndex, 0,
-      new Paragraph({
-        children: [
+        objectiveChildren.push(
           new TextRun({
-            text: 'OBJECTIVE',
-            bold: true,
-            size: 24
+            text: sessionContent.objective.notes,
+            size: 22
           })
-        ],
-        spacing: { after: 200 }
-      }),
-      new Paragraph({
-        children: objectiveChildren,
-        spacing: { after: 400 }
-      })
-    );
+        );
+
+        children.push(
+          new Paragraph({
+            children: objectiveChildren,
+            spacing: { after: 400 }
+          })
+        );
+      } else {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: section.content,
+                size: 22
+              })
+            ],
+            spacing: { after: 400 }
+          })
+        );
+      }
+    });
 
     // Provider Info
     children.push(

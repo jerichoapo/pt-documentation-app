@@ -184,7 +184,7 @@ const DeletedSessionDetailPage = () => {
             {/* Categories */}
             {session.objectiveCategories && Object.values(session.objectiveCategories).some(Boolean) && (
               <div className="mb-4">
-                <p className="text-sm font-semibold text-gray-600 mb-2">Assessment Categories:</p>
+                <p className="text-sm font-semibold text-gray-600 mb-2">Objective Categories:</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(session.objectiveCategories).map(([key, isSelected]) => {
                     if (!isSelected) return null;

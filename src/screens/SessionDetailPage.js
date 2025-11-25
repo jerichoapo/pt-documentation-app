@@ -273,7 +273,7 @@ const SessionDetailPage = () => {
             {/* Categories */}
             {isEditing ? (
               <div className="mb-4">
-                <p className="text-sm font-semibold text-gray-600 mb-2">Assessment Categories:</p>
+                <p className="text-sm font-semibold text-gray-600 mb-2">Objective Categories:</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {[
                     { key: 'balance', label: 'Balance & Coordination' },
@@ -312,7 +312,7 @@ const SessionDetailPage = () => {
             ) : (
               session.objectiveCategories && Object.values(session.objectiveCategories).some(Boolean) && (
                 <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-600 mb-2">Assessment Categories:</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-2">Objective Categories:</p>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(session.objectiveCategories).map(([key, isSelected]) => {
                       if (!isSelected) return null;
