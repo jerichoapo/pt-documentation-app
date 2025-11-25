@@ -17,6 +17,8 @@ const SessionWizard = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sessionStartTime, setSessionStartTime] = useState('14:00');
   const [sessionEndTime, setSessionEndTime] = useState('15:30');
+  const [therExMinutes, setTherExMinutes] = useState(0);
+  const [therActMinutes, setTherActMinutes] = useState(0);
   const [soapNote, setSoapNote] = useState({
     subjective: '',
     objectiveCategories: {
@@ -179,7 +181,9 @@ const SessionWizard = () => {
         objectiveCategories: soapNote.objectiveCategories,
         objectiveNotes: soapNote.objectiveNotes,
         assessment: soapNote.assessment,
-        plan: soapNote.plan
+        plan: soapNote.plan,
+        therExMinutes,
+        therActMinutes
       });
 
       // Show success toast (will implement later)
@@ -545,6 +549,34 @@ const SessionWizard = () => {
                     onChange={(e) => setSessionEndTime(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-4 mt-4">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">TherEx</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={therExMinutes}
+                    onChange={(e) => setTherExMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
+                  />
+                  <span className="text-sm text-gray-600">minutes</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">TherAct</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={therActMinutes}
+                    onChange={(e) => setTherActMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
+                  />
+                  <span className="text-sm text-gray-600">minutes</span>
                 </div>
               </div>
             </div>

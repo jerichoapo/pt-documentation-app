@@ -32,6 +32,8 @@ const formatSOAPContent = (session, patient, provider) => {
     patientName: `${patient.firstName} ${patient.lastName}`,
     sessionDate,
     timeRange,
+    therExMinutes: session.therExMinutes || 0,
+    therActMinutes: session.therActMinutes || 0,
     subjective: session.subjective || 'N/A',
     objective: {
       categories: session.objectiveCategories || {},
@@ -87,13 +89,23 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
       // Patient and Session Info
       {
         text: content.patientName,
-        style: 'header',
-        alignment: 'center',
-        margin: [0, 0, 0, 20]
+        style: 'patientName',
+        alignment: 'left',
+        margin: [0, 0, 0, 10]
       },
       {
         text: `Date of Service: ${content.sessionDate}`,
-        style: 'subheader',
+        style: 'headerLine',
+        margin: [0, 0, 0, 5]
+      },
+      {
+        text: `TherEx: ${content.therExMinutes} minutes`,
+        style: 'headerLine',
+        margin: [0, 0, 0, 5]
+      },
+      {
+        text: `TherAct: ${content.therActMinutes} minutes`,
+        style: 'headerLine',
         margin: [0, 0, 0, 20]
       },
 
@@ -164,15 +176,14 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
       }
     ],
     styles: {
-      header: {
-        fontSize: 24,
+      patientName: {
+        fontSize: 12,
         bold: true,
         color: '#333'
       },
-      subheader: {
-        fontSize: 14,
-        bold: true,
-        color: '#666'
+      headerLine: {
+        fontSize: 12,
+        color: '#333'
       },
       sectionHeader: {
         fontSize: 16,
@@ -240,13 +251,23 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
       // Patient and Session Info
       {
         text: sessionContent.patientName,
-        style: 'header',
-        alignment: 'center',
-        margin: [0, 0, 0, 20]
+        style: 'patientName',
+        alignment: 'left',
+        margin: [0, 0, 0, 10]
       },
       {
         text: `Date of Service: ${sessionContent.sessionDate}`,
-        style: 'subheader',
+        style: 'headerLine',
+        margin: [0, 0, 0, 5]
+      },
+      {
+        text: `TherEx: ${sessionContent.therExMinutes} minutes`,
+        style: 'headerLine',
+        margin: [0, 0, 0, 5]
+      },
+      {
+        text: `TherAct: ${sessionContent.therActMinutes} minutes`,
+        style: 'headerLine',
         margin: [0, 0, 0, 20]
       },
 
@@ -324,15 +345,14 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
     pageMargins: [40, 60, 40, 60],
     content: docContent,
     styles: {
-      header: {
-        fontSize: 24,
+      patientName: {
+        fontSize: 12,
         bold: true,
         color: '#333'
       },
-      subheader: {
-        fontSize: 14,
-        bold: true,
-        color: '#666'
+      headerLine: {
+        fontSize: 12,
+        color: '#333'
       },
       sectionHeader: {
         fontSize: 16,
@@ -395,12 +415,12 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
       children: [
         new TextRun({
           text: content.patientName,
-          size: 32,
+          size: 24,
           bold: true
         })
       ],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 400 }
+      alignment: AlignmentType.LEFT,
+      spacing: { after: 200 }
     })
   );
 
@@ -409,7 +429,31 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
       children: [
         new TextRun({
           text: `Date of Service: ${content.sessionDate}`,
-          bold: true
+          size: 24
+        })
+      ],
+      spacing: { after: 200 }
+    })
+  );
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `TherEx: ${content.therExMinutes} minutes`,
+          size: 24
+        })
+      ],
+      spacing: { after: 200 }
+    })
+  );
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `TherAct: ${content.therActMinutes} minutes`,
+          size: 24
         })
       ],
       spacing: { after: 400 }
@@ -594,12 +638,12 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
         children: [
           new TextRun({
             text: sessionContent.patientName,
-            size: 32,
+            size: 24,
             bold: true
           })
         ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 400 }
+        alignment: AlignmentType.LEFT,
+        spacing: { after: 200 }
       })
     );
 
@@ -608,7 +652,31 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
         children: [
           new TextRun({
             text: `Date of Service: ${sessionContent.sessionDate}`,
-            bold: true
+            size: 24
+          })
+        ],
+        spacing: { after: 200 }
+      })
+    );
+
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `TherEx: ${sessionContent.therExMinutes} minutes`,
+            size: 24
+          })
+        ],
+        spacing: { after: 200 }
+      })
+    );
+
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `TherAct: ${sessionContent.therActMinutes} minutes`,
+            size: 24
           })
         ],
         spacing: { after: 400 }

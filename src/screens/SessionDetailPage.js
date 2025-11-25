@@ -58,7 +58,9 @@ const SessionDetailPage = () => {
         objectiveCategories: editedSession.objectiveCategories || {},
         objectiveNotes: editedSession.objectiveNotes?.trim() || '',
         assessment: editedSession.assessment?.trim() || '',
-        plan: editedSession.plan?.trim() || ''
+        plan: editedSession.plan?.trim() || '',
+        therExMinutes: editedSession.therExMinutes || 0,
+        therActMinutes: editedSession.therActMinutes || 0
       });
       setIsEditing(false);
     } catch (error) {
@@ -243,6 +245,34 @@ const SessionDetailPage = () => {
                     </span>
                   )}
                 </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+            <div>
+              <strong>TherEx:</strong> {isEditing ? (
+                <input
+                  type="number"
+                  min="0"
+                  value={editedSession?.therExMinutes || 0}
+                  onChange={(e) => updateEditedSession('therExMinutes', Math.max(0, parseInt(e.target.value) || 0))}
+                  className="ml-2 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-16"
+                />
+              ) : (
+                <span className="ml-2">{session.therExMinutes || 0} minutes</span>
+              )}
+            </div>
+            <div>
+              <strong>TherAct:</strong> {isEditing ? (
+                <input
+                  type="number"
+                  min="0"
+                  value={editedSession?.therActMinutes || 0}
+                  onChange={(e) => updateEditedSession('therActMinutes', Math.max(0, parseInt(e.target.value) || 0))}
+                  className="ml-2 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-16"
+                />
+              ) : (
+                <span className="ml-2">{session.therActMinutes || 0} minutes</span>
               )}
             </div>
           </div>

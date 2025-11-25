@@ -417,6 +417,8 @@ export const store = {
       objectiveNotes: sessionData.objectiveNotes?.trim() || '',
       assessment: sessionData.assessment?.trim() || '',
       plan: sessionData.plan?.trim() || '',
+      therExMinutes: sessionData.therExMinutes || 0,
+      therActMinutes: sessionData.therActMinutes || 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
