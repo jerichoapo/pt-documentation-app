@@ -1,7 +1,7 @@
 // Data store for managing patients and sessions with localStorage persistence
 
 const STORAGE_KEY = 'ptAppData';
-const STORAGE_VERSION = '1.2';
+const STORAGE_VERSION = '1.3';
 
 // Default empty data structure
 const createEmptyData = () => ({
@@ -10,6 +10,15 @@ const createEmptyData = () => ({
   sessions: [],
   schools: []
 });
+
+// US States for validation
+const US_STATES = [
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+];
 
 // Storage utilities with error handling
 const loadFromStorage = () => {
@@ -143,6 +152,122 @@ const fuzzyMatch = (query, target, threshold = 0.6) => {
   return similarity >= threshold ? similarity : 0;
 };
 
+// School validation and utility functions
+const validateSchoolData = (schoolData) => {
+  const errors = [];
+
+  if (!schoolData.name || schoolData.name.trim().length === 0) {
+    errors.push('School name is required');
+  }
+
+  if (!schoolData.street_address || schoolData.street_address.trim().length === 0) {
+    errors.push('Street address is required');
+  }
+
+  if (!schoolData.city || schoolData.city.trim().length === 0) {
+    errors.push('City is required');
+  }
+
+  if (!schoolData.state || !US_STATES.includes(schoolData.state)) {
+    errors.push('Valid state is required');
+  }
+
+  if (!schoolData.zip_code || !/^\d{5}$/.test(schoolData.zip_code)) {
+    errors.push('ZIP code must be exactly 5 digits');
+  }
+
+  if (!schoolData.point_of_contact || schoolData.point_of_contact.trim().length === 0) {
+    errors.push('Point of contact is required');
+  }
+
+  if (!schoolData.phone || !/^[\d\s\-\(\)\+\.]+$/.test(schoolData.phone)) {
+    errors.push('Valid phone number is required');
+  }
+
+  if (schoolData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(schoolData.email)) {
+    errors.push('Valid email address is required');
+  }
+
+  return errors;
+};
+
+const formatPhoneNumber = (phone) => {
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  // Format as (XXX) XXX-XXXX if 10 digits
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return phone; // Return as-is if not 10 digits
+};
+
+const createGoogleMapsUrl = (school) => {
+  const address = encodeURIComponent(
+    `${school.street_address}, ${school.city}, ${school.state} ${school.zip_code}`
+  );
+  return `https://www.google.com/maps/search/?api=1&query=${address}`;
+};
+
+const createSearchableString = (school) => {
+  return `${school.name} ${school.street_address} ${school.city} ${school.state} ${school.zip_code} ${school.point_of_contact} ${school.phone} ${school.email || ''}`.toLowerCase();
+};
+
+const migratePatientsToSchoolIds = (data) => {
+  // Create schools from existing patient.school strings and assign schoolIds
+  const schoolMap = new Map(); // school name -> school id
+  const updatedSchools = [...data.schools];
+  const updatedPatients = data.patients.map(patient => {
+    if (!patient.school || typeof patient.school !== 'string') {
+      return { ...patient, schoolId: null };
+    }
+
+    const schoolName = patient.school.trim();
+    if (!schoolMap.has(schoolName)) {
+      // Check if school already exists
+      const existingSchool = updatedSchools.find(s => normalizeString(s.name) === normalizeString(schoolName));
+      if (existingSchool) {
+        schoolMap.set(schoolName, existingSchool.id);
+      } else {
+        // Create new school with minimal data
+        const newSchool = {
+          id: generateId(),
+          name: schoolName,
+          street_address: '',
+          city: '',
+          state: '',
+          zip_code: '',
+          point_of_contact: '',
+          phone: '',
+          email: '',
+          notes: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          patient_count: 0
+        };
+        updatedSchools.push(newSchool);
+        schoolMap.set(schoolName, newSchool.id);
+      }
+    }
+
+    return {
+      ...patient,
+      schoolId: schoolMap.get(schoolName),
+      // Keep old school field for backward compatibility during migration
+    };
+  });
+
+  // Update patient counts
+  updatedSchools.forEach(school => {
+    school.patient_count = updatedPatients.filter(p => p.schoolId === school.id && !p.deleted_at).length;
+  });
+
+  return {
+    ...data,
+    schools: updatedSchools,
+    patients: updatedPatients
+  };
+};
+
 // Main store API
 export const store = {
   // Initialize store and return current data
@@ -181,6 +306,12 @@ export const store = {
         data.version = STORAGE_VERSION;
         saveToStorage(data);
       }
+      // Handle migration from 1.2 to 1.3 - expand school schema and migrate patient school assignments
+      else if (data.version === '1.2') {
+        data = migratePatientsToSchoolIds(data);
+        data.version = STORAGE_VERSION;
+        saveToStorage(data);
+      }
     }
 
     // Run periodic cleanup of expired items (simulates background job)
@@ -195,30 +326,75 @@ export const store = {
   // School operations
   getSchools: (data) => data.schools,
 
-  addOrUpdateSchool: (data, schoolName) => {
-    const normalizedName = normalizeString(schoolName);
-    const existingSchoolIndex = data.schools.findIndex(s =>
-      normalizeString(s.name) === normalizedName
-    );
+  getSchoolById: (data, schoolId) => {
+    return data.schools.find(school => school.id === schoolId) || null;
+  },
 
-    let newSchools;
-    if (existingSchoolIndex >= 0) {
-      // Update existing school usage count
-      newSchools = [...data.schools];
-      newSchools[existingSchoolIndex] = {
-        ...newSchools[existingSchoolIndex],
-        usage_count: newSchools[existingSchoolIndex].usage_count + 1
-      };
-    } else {
-      // Add new school
-      const newSchool = {
-        id: generateId(),
-        name: schoolName.trim(),
-        usage_count: 1,
-        created_at: new Date().toISOString()
-      };
-      newSchools = [...data.schools, newSchool];
+  getPatientsForSchool: (data, schoolId) => {
+    return data.patients.filter(patient =>
+      patient.schoolId === schoolId && !patient.deleted_at
+    );
+  },
+
+  getPatientCountForSchool: (data, schoolId) => {
+    return data.patients.filter(patient =>
+      patient.schoolId === schoolId && !patient.deleted_at
+    ).length;
+  },
+
+  createSchool: (data, schoolData) => {
+    const validationErrors = validateSchoolData(schoolData);
+    if (validationErrors.length > 0) {
+      throw new Error(`VALIDATION_ERROR:${validationErrors.join(', ')}`);
     }
+
+    const now = new Date().toISOString();
+    const newSchool = {
+      id: generateId(),
+      name: schoolData.name.trim(),
+      street_address: schoolData.street_address.trim(),
+      city: schoolData.city.trim(),
+      state: schoolData.state,
+      zip_code: schoolData.zip_code,
+      point_of_contact: schoolData.point_of_contact.trim(),
+      phone: schoolData.phone.trim(),
+      email: schoolData.email?.trim() || '',
+      notes: schoolData.notes?.trim() || '',
+      created_at: now,
+      updated_at: now,
+      patient_count: 0
+    };
+
+    const newData = {
+      ...data,
+      schools: [...data.schools, newSchool]
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  updateSchool: (data, schoolId, updates) => {
+    const schoolIndex = data.schools.findIndex(school => school.id === schoolId);
+    if (schoolIndex === -1) {
+      throw new Error('School not found');
+    }
+
+    const existingSchool = data.schools[schoolIndex];
+    const updatedSchoolData = { ...existingSchool, ...updates };
+
+    const validationErrors = validateSchoolData(updatedSchoolData);
+    if (validationErrors.length > 0) {
+      throw new Error(`VALIDATION_ERROR:${validationErrors.join(', ')}`);
+    }
+
+    const updatedSchool = {
+      ...updatedSchoolData,
+      updated_at: new Date().toISOString()
+    };
+
+    const newSchools = [...data.schools];
+    newSchools[schoolIndex] = updatedSchool;
 
     const newData = {
       ...data,
@@ -229,10 +405,128 @@ export const store = {
     return newData;
   },
 
-  getSchoolSuggestions: (data, query, limit = 10) => {
-    if (!query || query.trim().length < 2) return [];
+  deleteSchoolSafely: (data, schoolId) => {
+    const school = data.schools.find(s => s.id === schoolId);
+    if (!school) {
+      throw new Error('School not found');
+    }
 
-    const queryTrimmed = query.trim();
+    const patientCount = data.patients.filter(p =>
+      p.schoolId === schoolId && !p.deleted_at
+    ).length;
+
+    if (patientCount > 0) {
+      throw new Error(`CANNOT_DELETE:${patientCount}`);
+    }
+
+    const newSchools = data.schools.filter(s => s.id !== schoolId);
+    const newData = {
+      ...data,
+      schools: newSchools
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  searchSchools: (data, query, options = {}) => {
+    if (!query || query.trim().length < 2) {
+      return data.schools;
+    }
+
+    const searchTerm = query.trim().toLowerCase();
+    const { limit = 50, sortBy = 'name', sortOrder = 'asc' } = options;
+
+    let filtered = data.schools.filter(school => {
+      const searchable = createSearchableString(school);
+      return searchable.includes(searchTerm);
+    });
+
+    // Sort results
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+
+      switch (sortBy) {
+        case 'name':
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case 'city':
+          aValue = a.city.toLowerCase();
+          bValue = b.city.toLowerCase();
+          break;
+        case 'patient_count':
+          aValue = a.patient_count;
+          bValue = b.patient_count;
+          break;
+        default:
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+      }
+
+      if (sortOrder === 'desc') {
+        return aValue < bValue ? 1 : -1;
+      }
+      return aValue > bValue ? 1 : -1;
+    });
+
+    return filtered.slice(0, limit);
+  },
+
+  // Legacy function for backward compatibility - will be removed in future
+  addOrUpdateSchool: (data, schoolName) => {
+    const normalizedName = normalizeString(schoolName);
+    const existingSchoolIndex = data.schools.findIndex(s =>
+      normalizeString(s.name) === normalizedName
+    );
+
+    if (existingSchoolIndex >= 0) {
+      // Update patient count
+      const existingSchool = data.schools[existingSchoolIndex];
+      const newSchools = [...data.schools];
+      newSchools[existingSchoolIndex] = {
+        ...existingSchool,
+        patient_count: existingSchool.patient_count + 1
+      };
+
+      const newData = {
+        ...data,
+        schools: newSchools
+      };
+
+      saveToStorage(newData);
+      return newData;
+    } else {
+      // Create minimal school record
+      return store.createSchool(data, {
+        name: schoolName,
+        street_address: '',
+        city: '',
+        state: 'CA', // Default state
+        zip_code: '00000',
+        point_of_contact: '',
+        phone: '',
+        email: '',
+        notes: 'Auto-created from patient assignment'
+      });
+    }
+  },
+
+  getSchoolSuggestions: (data, query, limit = 10) => {
+    const queryTrimmed = query ? query.trim() : '';
+
+    // If no query or query is very short, return top schools by usage/popularity
+    if (!queryTrimmed || queryTrimmed.length < 2) {
+      return data.schools
+        .sort((a, b) => {
+          // Sort by usage_count descending, then alphabetically
+          if (a.usage_count !== b.usage_count) return b.usage_count - a.usage_count;
+          return a.name.localeCompare(b.name);
+        })
+        .slice(0, limit);
+    }
+
+    // For longer queries, use fuzzy matching
     const matches = data.schools
       .map(school => ({
         ...school,
@@ -277,11 +571,9 @@ export const store = {
       }
     }
 
-    // Add school to schools collection if provided
+    // Handle school assignment
     let updatedData = data;
-    if (patientData.school && patientData.school.trim()) {
-      updatedData = store.addOrUpdateSchool(data, patientData.school);
-    }
+    const schoolId = patientData.schoolId || null;
 
     const newPatient = {
       id: generateId(),
@@ -293,12 +585,26 @@ export const store = {
       guardianPhone: patientData.guardianPhone?.trim() || '',
       notes: patientData.notes?.trim() || '',
       grade: patientData.grade || '',
+      schoolId: schoolId,
+      // Keep legacy field for backward compatibility
       school: patientData.school?.trim() || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lastSessionDate: null,
       sessionCount: 0
     };
+
+    // Update school patient count if school assigned
+    if (schoolId) {
+      updatedData = {
+        ...updatedData,
+        schools: updatedData.schools.map(school =>
+          school.id === schoolId
+            ? { ...school, patient_count: school.patient_count + 1 }
+            : school
+        )
+      };
+    }
 
     const newData = {
       ...updatedData,
@@ -317,19 +623,42 @@ export const store = {
 
     const existingPatient = data.patients[patientIndex];
 
-    // Handle school changes - decrement old school usage, increment new school usage
+    // Handle school changes - update patient counts
     let updatedData = data;
-    const oldSchool = existingPatient.school;
-    const newSchool = updates.school;
+    const oldSchoolId = existingPatient.schoolId;
+    const newSchoolId = updates.schoolId !== undefined ? updates.schoolId : oldSchoolId;
 
-    if (newSchool && newSchool.trim() && newSchool.trim() !== oldSchool) {
-      // Add/update new school
-      updatedData = store.addOrUpdateSchool(updatedData, newSchool);
+    // If school assignment changed
+    if (newSchoolId !== oldSchoolId) {
+      // Decrement old school's count
+      if (oldSchoolId) {
+        updatedData = {
+          ...updatedData,
+          schools: updatedData.schools.map(school =>
+            school.id === oldSchoolId
+              ? { ...school, patient_count: Math.max(0, school.patient_count - 1) }
+              : school
+          )
+        };
+      }
+
+      // Increment new school's count
+      if (newSchoolId) {
+        updatedData = {
+          ...updatedData,
+          schools: updatedData.schools.map(school =>
+            school.id === newSchoolId
+              ? { ...school, patient_count: school.patient_count + 1 }
+              : school
+          )
+        };
+      }
     }
 
     const updatedPatient = {
       ...existingPatient,
       ...updates,
+      schoolId: newSchoolId,
       updatedAt: new Date().toISOString()
     };
 
@@ -346,6 +675,11 @@ export const store = {
   },
 
   softDeletePatient: (data, patientId) => {
+    const patient = data.patients.find(p => p.id === patientId);
+    if (!patient) {
+      throw new Error('Patient not found');
+    }
+
     const now = new Date().toISOString();
     const permanentlyDeletedAt = getPermanentlyDeletedAt(now);
 
@@ -368,10 +702,18 @@ export const store = {
         : s
     );
 
+    // Update school patient count
+    const newSchools = patient.schoolId ? data.schools.map(school =>
+      school.id === patient.schoolId
+        ? { ...school, patient_count: Math.max(0, school.patient_count - 1) }
+        : school
+    ) : data.schools;
+
     const newData = {
       ...data,
       patients: newPatients,
-      sessions: newSessions
+      sessions: newSessions,
+      schools: newSchools
     };
 
     saveToStorage(newData);
@@ -540,10 +882,19 @@ export const store = {
       patient.id === patientId ? updatePatientCache(patient, newSessions) : patient
     );
 
+    // Update school patient count
+    const restoredPatient = finalPatients.find(p => p.id === patientId);
+    const newSchools = restoredPatient.schoolId ? data.schools.map(school =>
+      school.id === restoredPatient.schoolId
+        ? { ...school, patient_count: school.patient_count + 1 }
+        : school
+    ) : data.schools;
+
     const newData = {
       ...data,
       patients: finalPatients,
-      sessions: newSessions
+      sessions: newSessions,
+      schools: newSchools
     };
 
     saveToStorage(newData);
@@ -583,13 +934,22 @@ export const store = {
   },
 
   permanentlyDeletePatient: (data, patientId) => {
+    const patient = data.patients.find(p => p.id === patientId);
     const newPatients = data.patients.filter(p => p.id !== patientId);
     const newSessions = data.sessions.filter(s => s.patientId !== patientId);
+
+    // Update school patient count
+    const newSchools = patient.schoolId ? data.schools.map(school =>
+      school.id === patient.schoolId
+        ? { ...school, patient_count: Math.max(0, school.patient_count - 1) }
+        : school
+    ) : data.schools;
 
     const newData = {
       ...data,
       patients: newPatients,
-      sessions: newSessions
+      sessions: newSessions,
+      schools: newSchools
     };
 
     saveToStorage(newData);
@@ -680,5 +1040,12 @@ export const store = {
 
   exportData: (data) => {
     return JSON.stringify(data, null, 2);
-  }
+  },
+
+  // School utility functions
+  formatPhoneNumber: (phone) => formatPhoneNumber(phone),
+
+  createGoogleMapsUrl: (school) => createGoogleMapsUrl(school),
+
+  validateSchoolData: (schoolData) => validateSchoolData(schoolData)
 };

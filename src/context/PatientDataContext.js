@@ -17,6 +17,9 @@ const ACTIONS = {
   SOFT_DELETE_SESSION: 'SOFT_DELETE_SESSION',
   RESTORE_SESSION: 'RESTORE_SESSION',
   PERMANENTLY_DELETE_SESSION: 'PERMANENTLY_DELETE_SESSION',
+  CREATE_SCHOOL: 'CREATE_SCHOOL',
+  UPDATE_SCHOOL: 'UPDATE_SCHOOL',
+  DELETE_SCHOOL: 'DELETE_SCHOOL',
   SET_ERROR: 'SET_ERROR',
   CLEAR_ERROR: 'CLEAR_ERROR'
 };
@@ -116,6 +119,27 @@ const patientDataReducer = (state, action) => {
         ...state,
         patients: action.payload.patients,
         sessions: action.payload.sessions,
+        error: null
+      };
+
+    case ACTIONS.CREATE_SCHOOL:
+      return {
+        ...state,
+        schools: action.payload.schools,
+        error: null
+      };
+
+    case ACTIONS.UPDATE_SCHOOL:
+      return {
+        ...state,
+        schools: action.payload.schools,
+        error: null
+      };
+
+    case ACTIONS.DELETE_SCHOOL:
+      return {
+        ...state,
+        schools: action.payload.schools,
         error: null
       };
 
@@ -594,6 +618,107 @@ export const PatientDataProvider = ({ children }) => {
     }
   };
 
+  const createSchool = async (schoolData) => {
+    try {
+      const newData = store.createSchool({
+        patients: state.patients,
+        sessions: state.sessions,
+        schools: state.schools
+      }, schoolData);
+
+      dispatch({
+        type: ACTIONS.CREATE_SCHOOL,
+        payload: { schools: newData.schools }
+      });
+
+      // Show success toast
+      addToast('School created successfully', 'success');
+
+      return newData.schools[newData.schools.length - 1];
+    } catch (error) {
+      if (error.message.startsWith('VALIDATION_ERROR:')) {
+        const validationMessage = error.message.replace('VALIDATION_ERROR:', '');
+        addToast(`Validation failed: ${validationMessage}`, 'error');
+      } else {
+        addToast('Failed to create school', 'error');
+        dispatch({
+          type: ACTIONS.SET_ERROR,
+          payload: { type: 'SAVE_ERROR', message: 'Failed to create school' }
+        });
+      }
+      throw error;
+    }
+  };
+
+  const updateSchool = async (schoolId, updates) => {
+    try {
+      const newData = store.updateSchool({
+        patients: state.patients,
+        sessions: state.sessions,
+        schools: state.schools
+      }, schoolId, updates);
+
+      dispatch({
+        type: ACTIONS.UPDATE_SCHOOL,
+        payload: { schools: newData.schools }
+      });
+
+      // Show success toast
+      addToast('School updated successfully', 'success');
+
+      return newData.schools.find(s => s.id === schoolId);
+    } catch (error) {
+      if (error.message.startsWith('VALIDATION_ERROR:')) {
+        const validationMessage = error.message.replace('VALIDATION_ERROR:', '');
+        addToast(`Validation failed: ${validationMessage}`, 'error');
+      } else {
+        addToast('Failed to update school', 'error');
+        dispatch({
+          type: ACTIONS.SET_ERROR,
+          payload: { type: 'SAVE_ERROR', message: 'Failed to update school' }
+        });
+      }
+      throw error;
+    }
+  };
+
+  const deleteSchool = async (schoolId) => {
+    try {
+      const schoolToDelete = state.schools.find(s => s.id === schoolId);
+      if (!schoolToDelete) {
+        throw new Error('School not found');
+      }
+
+      const newData = store.deleteSchoolSafely({
+        patients: state.patients,
+        sessions: state.sessions,
+        schools: state.schools
+      }, schoolId);
+
+      dispatch({
+        type: ACTIONS.DELETE_SCHOOL,
+        payload: { schools: newData.schools }
+      });
+
+      // Show success toast
+      addToast('School deleted successfully', 'success');
+
+      return schoolToDelete;
+    } catch (error) {
+      if (error.message.startsWith('CANNOT_DELETE:')) {
+        const patientCount = error.message.replace('CANNOT_DELETE:', '');
+        addToast(`Cannot delete school with ${patientCount} assigned patients. Please reassign patients first.`, 'error');
+      } else {
+        addToast('Failed to delete school', 'error');
+        dispatch({
+          type: ACTIONS.SET_ERROR,
+          payload: { type: 'SAVE_ERROR', message: 'Failed to delete school' }
+        });
+      }
+      throw error;
+    }
+  };
+
   const clearError = () => {
     dispatch({ type: ACTIONS.CLEAR_ERROR });
   };
@@ -668,6 +793,35 @@ export const PatientDataProvider = ({ children }) => {
 
     getSchoolSuggestions,
 
+    // School helpers
+    getSchoolById: (id) => store.getSchoolById({
+      patients: state.patients,
+      sessions: state.sessions,
+      schools: state.schools
+    }, id),
+
+    getPatientsForSchool: (schoolId) => store.getPatientsForSchool({
+      patients: state.patients,
+      sessions: state.sessions,
+      schools: state.schools
+    }, schoolId),
+
+    getPatientCountForSchool: (schoolId) => store.getPatientCountForSchool({
+      patients: state.patients,
+      sessions: state.sessions,
+      schools: state.schools
+    }, schoolId),
+
+    searchSchools: (query, options) => store.searchSchools({
+      patients: state.patients,
+      sessions: state.sessions,
+      schools: state.schools
+    }, query, options),
+
+    formatPhoneNumber: store.formatPhoneNumber,
+    createGoogleMapsUrl: store.createGoogleMapsUrl,
+    validateSchoolData: store.validateSchoolData,
+
     // Actions
     addPatient,
     updatePatient,
@@ -681,6 +835,9 @@ export const PatientDataProvider = ({ children }) => {
     softDeleteSession,
     restoreSession,
     permanentlyDeleteSession,
+    createSchool,
+    updateSchool,
+    deleteSchool,
     clearError,
     clearAllData,
     exportData

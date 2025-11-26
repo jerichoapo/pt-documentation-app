@@ -10,6 +10,9 @@ import RecentlyDeletedPage from './screens/RecentlyDeletedPage';
 import DeletedPatientDetailPage from './screens/DeletedPatientDetailPage';
 import DeletedSessionDetailPage from './screens/DeletedSessionDetailPage';
 import ProfilePage from './screens/ProfilePage';
+import SchoolsListPage from './screens/SchoolsListPage';
+import AddSchoolPage from './screens/AddSchoolPage';
+import EditSchoolPage from './screens/EditSchoolPage';
 import PatientForm from './components/PatientForm';
 import ErrorModal from './components/ErrorModal';
 import { usePatientData } from './context/PatientDataContext';
@@ -59,6 +62,12 @@ const App = () => {
                 Recently Deleted
               </Link>
               <Link
+                to="/schools"
+                className="text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Schools
+              </Link>
+              <Link
                 to="/settings/profile"
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium"
               >
@@ -88,6 +97,9 @@ const App = () => {
           <Route path="/recently-deleted" element={<RecentlyDeletedPage />} />
           <Route path="/recently-deleted/patients/:patientId" element={<DeletedPatientDetailPage />} />
           <Route path="/recently-deleted/sessions/:sessionId" element={<DeletedSessionDetailPage />} />
+          <Route path="/schools" element={<SchoolsListPage />} />
+          <Route path="/schools/new" element={<AddSchoolPage />} />
+          <Route path="/schools/:schoolId/edit" element={<EditSchoolPage />} />
           <Route path="/settings/profile" element={<ProfilePage />} />
         </Routes>
       </main>

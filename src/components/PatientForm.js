@@ -241,6 +241,13 @@ const PatientForm = () => {
     }
   };
 
+  const handleSchoolInputFocus = () => {
+    // Show suggestions immediately when focusing the field, even with short/empty input
+    const suggestions = getSchoolSuggestions(schoolInputValue.trim(), 10);
+    setSchoolSuggestions(suggestions);
+    setShowSchoolSuggestions(true);
+  };
+
   const handleSchoolSuggestionSelect = (suggestion) => {
     setSchoolInputValue(suggestion.name);
     setFormData(prev => ({ ...prev, school: suggestion.name }));
@@ -435,6 +442,7 @@ const PatientForm = () => {
                 type="text"
                 value={schoolInputValue}
                 onChange={(e) => handleSchoolInputChange(e.target.value)}
+                onFocus={handleSchoolInputFocus}
                 onBlur={handleSchoolInputBlur}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter school name (optional)"
