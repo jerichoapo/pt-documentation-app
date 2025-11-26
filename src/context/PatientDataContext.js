@@ -38,6 +38,7 @@ const patientDataReducer = (state, action) => {
       return {
         ...state,
         patients: action.payload.patients,
+        schools: action.payload.schools,
         error: null
       };
 
@@ -45,6 +46,7 @@ const patientDataReducer = (state, action) => {
       return {
         ...state,
         patients: action.payload.patients,
+        schools: action.payload.schools,
         error: null
       };
 
@@ -54,6 +56,7 @@ const patientDataReducer = (state, action) => {
         ...state,
         patients: action.payload.patients,
         sessions: action.payload.sessions,
+        schools: action.payload.schools,
         error: null
       };
 
@@ -62,6 +65,7 @@ const patientDataReducer = (state, action) => {
         ...state,
         patients: action.payload.patients,
         sessions: action.payload.sessions,
+        schools: action.payload.schools,
         error: null
       };
 
@@ -70,6 +74,7 @@ const patientDataReducer = (state, action) => {
         ...state,
         patients: action.payload.patients,
         sessions: action.payload.sessions,
+        schools: action.payload.schools,
         error: null
       };
 
@@ -191,7 +196,7 @@ export const PatientDataProvider = ({ children }) => {
 
       dispatch({
         type: ACTIONS.ADD_PATIENT,
-        payload: { patients: newData.patients }
+        payload: { patients: newData.patients, schools: newData.schools }
       });
 
       return newData.patients[newData.patients.length - 1];
@@ -224,7 +229,7 @@ export const PatientDataProvider = ({ children }) => {
 
       dispatch({
         type: ACTIONS.UPDATE_PATIENT,
-        payload: { patients: newData.patients }
+        payload: { patients: newData.patients, schools: newData.schools }
       });
     } catch (error) {
       dispatch({
