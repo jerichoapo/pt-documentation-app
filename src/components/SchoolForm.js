@@ -33,12 +33,12 @@ const formatZipCode = (value) => {
   return value.replace(/\D/g, '').slice(0, 5);
 };
 
-const SchoolForm = ({ schoolId, isEdit = false }) => {
+const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initialSchoolName }) => {
   const navigate = useNavigate();
   const { createSchool, updateSchool, getSchoolById, isLoading } = usePatientData();
 
   const [formData, setFormData] = useState({
-    name: '',
+    name: initialSchoolName || '',
     street_address: '',
     city: '',
     state: '',
@@ -191,12 +191,27 @@ const SchoolForm = ({ schoolId, isEdit = false }) => {
 
     setIsSubmitting(true);
     try {
+      let newSchool;
       if (isEdit) {
         await updateSchool(schoolId, formData);
       } else {
-        await createSchool(formData);
+        newSchool = await createSchool(formData);
       }
-      navigate('/schools');
+
+      // If we have a return path (came from patient form), redirect back with new school info
+      if (!isEdit && returnTo && newSchool) {
+        navigate(returnTo, {
+          state: {
+            newSchool: {
+              id: newSchool.id,
+              name: newSchool.name
+            },
+            returnContext
+          }
+        });
+      } else {
+        navigate('/schools');
+      }
     } catch (error) {
       // Error handling is done in the context
     } finally {
