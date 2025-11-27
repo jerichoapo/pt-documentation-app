@@ -145,37 +145,56 @@ const PatientDetailPage = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Row 1: Age and Parent/Guardian */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
               <p className="text-lg text-gray-900">{calculateAge(patient.dob)} years</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-              <p className="text-lg text-gray-900">{new Date(patient.dob).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
-              <p className="text-lg text-gray-900">{patient.diagnosis || 'Not specified'}</p>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Parent/Guardian</label>
               <p className="text-lg text-gray-900">{patient.guardianName || 'Not specified'}</p>
+            </div>
+          </div>
+
+          {/* Row 2: Date of Birth and Contact Phone */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+              <p className="text-lg text-gray-900">{new Date(patient.dob).toLocaleDateString()}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
               <p className="text-lg text-gray-900">{patient.guardianPhone || 'Not specified'}</p>
             </div>
-            {patient.notes && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-                <p className="text-lg text-gray-900">{patient.notes}</p>
-              </div>
-            )}
           </div>
+
+          {/* Row 3: Diagnosis (full width) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
+            <p className="text-lg text-gray-900">{patient.diagnosis || 'Not specified'}</p>
+          </div>
+
+          {/* Row 4: Grade and School */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+              <p className="text-lg text-gray-900">{patient.grade || 'Not specified'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
+              <p className="text-lg text-gray-900">{patient.school || 'Not specified'}</p>
+            </div>
+          </div>
+
+          {/* Additional Notes (if present) */}
+          {patient.notes && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
+              <p className="text-lg text-gray-900">{patient.notes}</p>
+            </div>
+          )}
         </div>
       </div>
 

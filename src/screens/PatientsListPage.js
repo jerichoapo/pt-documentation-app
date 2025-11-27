@@ -90,6 +90,8 @@ const PatientsListPage = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Name</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Age</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Diagnosis</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Grade</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">School</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Last Session</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Sessions</th>
                 </tr>
@@ -114,6 +116,16 @@ const PatientsListPage = () => {
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-700">
                         {patient.diagnosis || 'Not specified'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-700">
+                        {patient.grade || 'Not specified'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-700">
+                        {patient.school || 'Not specified'}
                       </div>
                     </td>
                     <td className="px-6 py-4">
