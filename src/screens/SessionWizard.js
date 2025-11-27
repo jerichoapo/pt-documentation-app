@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, FileText, Home } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
+import { useToastContext } from '../context/ToastContext';
 
 const SessionWizard = () => {
   const { patientId, section } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { getPatientById, addSession } = usePatientData();
+  const { addToast } = useToastContext();
 
   // Extract referrer from query parameters, default to 'profile'
   const searchParams = new URLSearchParams(location.search);
@@ -141,6 +143,24 @@ const SessionWizard = () => {
     }
   };
 
+  const getIncompleteSections = () => {
+    const incompleteSections = [];
+    const soapSections = [
+      { index: 1, name: 'Subjective' },
+      { index: 2, name: 'Objective' },
+      { index: 3, name: 'Assessment' },
+      { index: 4, name: 'Plan' }
+    ];
+
+    soapSections.forEach(section => {
+      if (!sectionHasContent(section.index)) {
+        incompleteSections.push(section.name);
+      }
+    });
+
+    return incompleteSections;
+  };
+
   const handleObjectiveCategoryToggle = (key) => {
     setSoapNote(prev => ({
       ...prev,
@@ -195,6 +215,19 @@ const SessionWizard = () => {
       console.error('Failed to save session:', error);
       // Error handling will be implemented later
     }
+  };
+
+  const handleValidatedSave = () => {
+    const incompleteSections = getIncompleteSections();
+
+    if (incompleteSections.length > 0) {
+      const message = `Cannot save. Missing required sections: ${incompleteSections.join(', ')}`;
+      addToast(message, 'warning');
+      return;
+    }
+
+    // All sections are complete, proceed to next step
+    handleNextStep();
   };
 
   const renderStepIndicator = () => (
@@ -627,7 +660,7 @@ const SessionWizard = () => {
           Back to Edit
         </button>
         <button
-          onClick={handleNextStep}
+          onClick={handleValidatedSave}
           className="px-8 py-3 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 flex items-center gap-2"
         >
           <Save size={20} />
