@@ -13,6 +13,7 @@ import ProfilePage from './screens/ProfilePage';
 import SchoolsListPage from './screens/SchoolsListPage';
 import AddSchoolPage from './screens/AddSchoolPage';
 import EditSchoolPage from './screens/EditSchoolPage';
+import SchoolProfilePage from './screens/SchoolProfilePage';
 import PatientForm from './components/PatientForm';
 import ErrorModal from './components/ErrorModal';
 import { usePatientData } from './context/PatientDataContext';
@@ -99,6 +100,7 @@ const App = () => {
           <Route path="/recently-deleted/sessions/:sessionId" element={<DeletedSessionDetailPage />} />
           <Route path="/schools" element={<SchoolsListPage />} />
           <Route path="/schools/new" element={<AddSchoolPage />} />
+          <Route path="/schools/:schoolId" element={<SchoolProfilePage />} />
           <Route path="/schools/:schoolId/edit" element={<EditSchoolPage />} />
           <Route path="/settings/profile" element={<ProfilePage />} />
         </Routes>
