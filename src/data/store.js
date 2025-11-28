@@ -324,7 +324,7 @@ export const store = {
   getPatients: (data) => data.patients.filter(p => !p.deleted_at),
 
   // School operations
-  getSchools: (data) => data.schools,
+  getSchools: (data) => data.schools.filter(s => !s.deleted_at),
 
   getSchoolById: (data, schoolId) => {
     return data.schools.find(school => school.id === schoolId) || null;
@@ -405,7 +405,7 @@ export const store = {
     return newData;
   },
 
-  deleteSchoolSafely: (data, schoolId) => {
+  softDeleteSchool: (data, schoolId) => {
     const school = data.schools.find(s => s.id === schoolId);
     if (!school) {
       throw new Error('School not found');
@@ -419,7 +419,15 @@ export const store = {
       throw new Error(`CANNOT_DELETE:${patientCount}`);
     }
 
-    const newSchools = data.schools.filter(s => s.id !== schoolId);
+    const now = new Date().toISOString();
+    const permanentlyDeletedAt = getPermanentlyDeletedAt(now);
+
+    const newSchools = data.schools.map(s =>
+      s.id === schoolId
+        ? { ...s, deleted_at: now, permanently_deleted_at: permanentlyDeletedAt }
+        : s
+    );
+
     const newData = {
       ...data,
       schools: newSchools
@@ -429,15 +437,64 @@ export const store = {
     return newData;
   },
 
+  restoreSchool: (data, schoolId) => {
+    const newSchools = data.schools.map(s =>
+      s.id === schoolId
+        ? { ...s, deleted_at: null, permanently_deleted_at: null }
+        : s
+    );
+
+    const newData = {
+      ...data,
+      schools: newSchools
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  permanentlyDeleteSchool: (data, schoolId) => {
+    const newSchools = data.schools.filter(s => s.id !== schoolId);
+
+    const newData = {
+      ...data,
+      schools: newSchools
+    };
+
+    saveToStorage(newData);
+    return newData;
+  },
+
+  getDeletedSchoolById: (data, schoolId) => {
+    const school = data.schools.find(s => s.id === schoolId);
+    return school && school.deleted_at ? school : null;
+  },
+
+  getRecentlyDeletedSchools: (data) => {
+    return data.schools
+      .filter(s => s.deleted_at)
+      .map(s => ({
+        ...s,
+        daysUntilPermanentDeletion: daysUntilPermanentDeletion(s.permanently_deleted_at)
+      }))
+      .sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at));
+  },
+
+  deleteSchoolSafely: (data, schoolId) => {
+    // Delegate to soft delete for backward compatibility
+    return store.softDeleteSchool(data, schoolId);
+  },
+
   searchSchools: (data, query, options = {}) => {
     if (!query || query.trim().length < 2) {
-      return data.schools;
+      return data.schools.filter(s => !s.deleted_at);
     }
 
     const searchTerm = query.trim().toLowerCase();
     const { limit = 50, sortBy = 'name', sortOrder = 'asc' } = options;
 
     let filtered = data.schools.filter(school => {
+      if (school.deleted_at) return false;
       const searchable = createSearchableString(school);
       return searchable.includes(searchTerm);
     });
@@ -514,10 +571,11 @@ export const store = {
 
   getSchoolSuggestions: (data, query, limit = 10) => {
     const queryTrimmed = query ? query.trim() : '';
+    const activeSchools = data.schools.filter(s => !s.deleted_at);
 
     // If no query or query is very short, return top schools by usage/popularity
     if (!queryTrimmed || queryTrimmed.length < 2) {
-      return data.schools
+      return activeSchools
         .sort((a, b) => {
           // Sort by usage_count descending, then alphabetically
           if (a.usage_count !== b.usage_count) return b.usage_count - a.usage_count;
@@ -527,7 +585,7 @@ export const store = {
     }
 
     // For longer queries, use fuzzy matching
-    const matches = data.schools
+    const matches = activeSchools
       .map(school => ({
         ...school,
         score: fuzzyMatch(queryTrimmed, school.name)
@@ -1022,11 +1080,20 @@ export const store = {
       return true;
     });
 
+    const newSchools = data.schools.filter(s => {
+      if (s.permanently_deleted_at && new Date(s.permanently_deleted_at) <= now) {
+        hasChanges = true;
+        return false;
+      }
+      return true;
+    });
+
     if (hasChanges) {
       return {
         ...data,
         patients: newPatients,
-        sessions: newSessions
+        sessions: newSessions,
+        schools: newSchools
       };
     }
 

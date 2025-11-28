@@ -13,7 +13,8 @@
       "Bash(node -c:*)",
       "Bash(dir:*)",
       "Bash(node encode-fonts.js:*)",
-      "Bash(del encode-fonts.js)"
+      "Bash(del encode-fonts.js)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

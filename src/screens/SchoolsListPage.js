@@ -221,7 +221,7 @@ const SchoolsListPage = () => {
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete School</h3>
             <p className="text-gray-600 mb-4">
-              Are you sure you want to delete "{deleteConfirm.name}"?
+              Move "{deleteConfirm.name}" to Recently Deleted? You can restore it within 30 days.
             </p>
             {getPatientCountForSchool(deleteConfirm.id) > 0 && (
               <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
@@ -243,7 +243,7 @@ const SchoolsListPage = () => {
                 disabled={getPatientCountForSchool(deleteConfirm.id) > 0}
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Delete
+                Move to Recently Deleted
               </button>
             </div>
           </div>

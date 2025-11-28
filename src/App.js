@@ -9,6 +9,7 @@ import SessionDetailPage from './screens/SessionDetailPage';
 import RecentlyDeletedPage from './screens/RecentlyDeletedPage';
 import DeletedPatientDetailPage from './screens/DeletedPatientDetailPage';
 import DeletedSessionDetailPage from './screens/DeletedSessionDetailPage';
+import DeletedSchoolDetailPage from './screens/DeletedSchoolDetailPage';
 import ProfilePage from './screens/ProfilePage';
 import SchoolsListPage from './screens/SchoolsListPage';
 import AddSchoolPage from './screens/AddSchoolPage';
@@ -98,6 +99,7 @@ const App = () => {
           <Route path="/recently-deleted" element={<RecentlyDeletedPage />} />
           <Route path="/recently-deleted/patients/:patientId" element={<DeletedPatientDetailPage />} />
           <Route path="/recently-deleted/sessions/:sessionId" element={<DeletedSessionDetailPage />} />
+          <Route path="/recently-deleted/schools/:schoolId" element={<DeletedSchoolDetailPage />} />
           <Route path="/schools" element={<SchoolsListPage />} />
           <Route path="/schools/new" element={<AddSchoolPage />} />
           <Route path="/schools/:schoolId" element={<SchoolProfilePage />} />

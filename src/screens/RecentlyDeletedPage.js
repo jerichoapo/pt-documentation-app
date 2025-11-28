@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, RotateCcw, Trash2, Calendar, Clock, User, FileText } from 'lucide-react';
+import { ArrowLeft, Search, RotateCcw, Trash2, Calendar, User, FileText, Building2 } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { formatDate } from '../utils/sessionFormatting';
@@ -10,10 +10,13 @@ const RecentlyDeletedPage = () => {
   const {
     getRecentlyDeletedPatients,
     getRecentlyDeletedSessions,
+    getRecentlyDeletedSchools,
     restorePatient,
     restoreSession,
+    restoreSchool,
     permanentlyDeletePatient,
     permanentlyDeleteSession,
+    permanentlyDeleteSchool,
     getDeletedPatientById
   } = usePatientData();
   const { addToast } = useToastContext();
@@ -29,6 +32,7 @@ const RecentlyDeletedPage = () => {
 
   const patients = useMemo(() => getRecentlyDeletedPatients(), [getRecentlyDeletedPatients]);
   const sessions = useMemo(() => getRecentlyDeletedSessions(), [getRecentlyDeletedSessions]);
+  const schools = useMemo(() => getRecentlyDeletedSchools(), [getRecentlyDeletedSchools]);
 
   const filteredPatients = useMemo(() => {
     if (!searchTerm.trim()) return patients;
@@ -50,7 +54,17 @@ const RecentlyDeletedPage = () => {
     );
   }, [sessions, searchTerm]);
 
-  const currentItems = activeTab === 'patients' ? filteredPatients : filteredSessions;
+  const filteredSchools = useMemo(() => {
+    if (!searchTerm.trim()) return schools;
+    const term = searchTerm.toLowerCase().trim();
+    return schools.filter(school =>
+      school.name?.toLowerCase().includes(term) ||
+      school.city?.toLowerCase().includes(term) ||
+      school.point_of_contact?.toLowerCase().includes(term)
+    );
+  }, [schools, searchTerm]);
+
+  const currentItems = activeTab === 'patients' ? filteredPatients : activeTab === 'sessions' ? filteredSessions : filteredSchools;
   const hasItems = currentItems.length > 0;
   const hasSelectedItems = selectedItems.size > 0;
 
@@ -76,7 +90,7 @@ const RecentlyDeletedPage = () => {
     try {
       if (activeTab === 'patients') {
         await restorePatient(id);
-      } else {
+      } else if (activeTab === 'sessions') {
         // Check if the session's patient is deleted
         const session = sessions.find(s => s.id === id);
         const patient = session ? getDeletedPatientById(session.patientId) : null;
@@ -89,6 +103,8 @@ const RecentlyDeletedPage = () => {
           // Patient not deleted, restore session normally
           await restoreSession(id);
         }
+      } else {
+        await restoreSchool(id);
       }
     } catch (error) {
       // Error handled by context
@@ -129,17 +145,20 @@ const RecentlyDeletedPage = () => {
   };
 
   const handlePermanentDelete = async (id) => {
-    const itemType = activeTab === 'patients' ? 'patient' : 'note';
     const itemName = activeTab === 'patients'
       ? `${currentItems.find(p => p.id === id)?.firstName} ${currentItems.find(p => p.id === id)?.lastName}`
-      : 'this note';
+      : activeTab === 'schools'
+        ? currentItems.find(s => s.id === id)?.name
+        : 'this note';
 
     if (window.confirm(`Permanently delete ${itemName}? This action cannot be undone and the data will be lost forever.`)) {
       try {
         if (activeTab === 'patients') {
           await permanentlyDeletePatient(id);
-        } else {
+        } else if (activeTab === 'sessions') {
           await permanentlyDeleteSession(id);
+        } else {
+          await permanentlyDeleteSchool(id);
         }
       } catch (error) {
         // Error handled by context
@@ -154,8 +173,10 @@ const RecentlyDeletedPage = () => {
         try {
           if (activeTab === 'patients') {
             await restorePatient(id);
-          } else {
+          } else if (activeTab === 'sessions') {
             await restoreSession(id);
+          } else {
+            await restoreSchool(id);
           }
         } catch (error) {
           // Continue with other items
@@ -172,8 +193,10 @@ const RecentlyDeletedPage = () => {
         try {
           if (activeTab === 'patients') {
             await permanentlyDeletePatient(id);
-          } else {
+          } else if (activeTab === 'sessions') {
             await permanentlyDeleteSession(id);
+          } else {
+            await permanentlyDeleteSchool(id);
           }
         } catch (error) {
           // Continue with other items
@@ -190,8 +213,10 @@ const RecentlyDeletedPage = () => {
         try {
           if (activeTab === 'patients') {
             await permanentlyDeletePatient(item.id);
-          } else {
+          } else if (activeTab === 'sessions') {
             await permanentlyDeleteSession(item.id);
+          } else {
+            await permanentlyDeleteSchool(item.id);
           }
         } catch (error) {
           // Continue with other items
@@ -245,6 +270,20 @@ const RecentlyDeletedPage = () => {
             }`}
           >
             Notes ({sessions.length})
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('schools');
+              setSelectedItems(new Set());
+              setSearchTerm('');
+            }}
+            className={`px-6 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'schools'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Schools ({schools.length})
           </button>
         </div>
 
@@ -330,7 +369,7 @@ const RecentlyDeletedPage = () => {
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-12"></th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    {activeTab === 'patients' ? 'Patient' : 'Note'}
+                    {activeTab === 'patients' ? 'Patient' : activeTab === 'sessions' ? 'Note' : 'School'}
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Deleted</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Days Left</th>
@@ -365,7 +404,7 @@ const RecentlyDeletedPage = () => {
                               )}
                             </div>
                           </>
-                        ) : (
+                        ) : activeTab === 'sessions' ? (
                           <>
                             <FileText className="text-gray-400" size={20} />
                             <div>
@@ -378,6 +417,21 @@ const RecentlyDeletedPage = () => {
                               <div className="text-sm text-gray-600">
                                 {item.subjective?.substring(0, 50)}
                                 {item.subjective?.length > 50 && '...'}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <Building2 className="text-gray-400" size={20} />
+                            <div>
+                              <Link
+                                to={`/recently-deleted/schools/${item.id}`}
+                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                {item.name}
+                              </Link>
+                              <div className="text-sm text-gray-600">
+                                {item.city && item.state && `${item.city}, ${item.state}`}
                               </div>
                             </div>
                           </>
