@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -33,8 +33,13 @@ const PatientForm = () => {
     notes: '',
     grade: '',
     school: '',
-    schoolId: null
+    schoolId: null,
+    goals: [],
+    visitFrequency: null
   });
+
+  const newGoalId = () =>
+    Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,7 +76,9 @@ const PatientForm = () => {
         notes: existingPatient.notes || '',
         grade: existingPatient.grade || '',
         school: schoolName,
-        schoolId: schoolId
+        schoolId: schoolId,
+        goals: existingPatient.goals || [],
+        visitFrequency: existingPatient.visitFrequency || null
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,7 +266,11 @@ const PatientForm = () => {
         school: formData.school.trim(),
         // Derived directly from the typed name; formData.schoolId can be
         // stale when the user typed an exact school name without clicking
-        schoolId: resolveSchoolId()
+        schoolId: resolveSchoolId(),
+        goals: formData.goals
+          .map(goal => ({ ...goal, text: goal.text.trim() }))
+          .filter(goal => goal.text.length > 0),
+        visitFrequency: formData.visitFrequency
       };
 
       if (isEditMode) {
@@ -315,6 +326,32 @@ const PatientForm = () => {
   const handleSchoolInputBlur = () => {
     // Delay hiding dropdown to allow for click selection
     setTimeout(() => setShowSchoolDropdown(false), 150);
+  };
+
+  const handleAddGoal = () => {
+    setFormData(prev => ({
+      ...prev,
+      goals: [
+        ...prev.goals,
+        { id: newGoalId(), text: '', targetDate: null, status: 'active', createdAt: new Date().toISOString() }
+      ]
+    }));
+  };
+
+  const handleGoalChange = (goalId, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      goals: prev.goals.map(goal =>
+        goal.id === goalId ? { ...goal, [field]: value } : goal
+      )
+    }));
+  };
+
+  const handleRemoveGoal = (goalId) => {
+    setFormData(prev => ({
+      ...prev,
+      goals: prev.goals.filter(goal => goal.id !== goalId)
+    }));
   };
 
   const handleAddSchoolClick = () => {
@@ -545,6 +582,92 @@ const PatientForm = () => {
                 <p className="mt-1 text-sm text-red-600">{errors.school}</p>
               )}
             </div>
+          </div>
+
+          {/* Visit Frequency */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Visit Frequency
+              </label>
+              <select
+                value={formData.visitFrequency?.timesPerWeek || ''}
+                onChange={(e) => handleInputChange(
+                  'visitFrequency',
+                  e.target.value ? { timesPerWeek: Number(e.target.value) } : null
+                )}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Not set (optional)</option>
+                <option value="1">1× per week</option>
+                <option value="2">2× per week</option>
+                <option value="3">3× per week</option>
+                <option value="4">4× per week</option>
+                <option value="5">5× per week</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Used to flag patients still due for a visit this week.
+              </p>
+            </div>
+          </div>
+
+          {/* Therapy Goals */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Therapy Goals
+            </label>
+            {formData.goals.length === 0 && (
+              <p className="text-sm text-gray-500 mb-2">
+                No goals yet. Goals appear as a reference while documenting and on exported notes.
+              </p>
+            )}
+            <div className="space-y-3">
+              {formData.goals.map((goal) => (
+                <div key={goal.id} className="flex flex-wrap items-center gap-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                  <input
+                    type="text"
+                    value={goal.text}
+                    onChange={(e) => handleGoalChange(goal.id, 'text', e.target.value)}
+                    placeholder="Goal description (e.g., Ascend 5 stairs with rail, SBA)"
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div>
+                    <input
+                      type="date"
+                      value={goal.targetDate || ''}
+                      onChange={(e) => handleGoalChange(goal.id, 'targetDate', e.target.value || null)}
+                      title="Target date (optional)"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <select
+                    value={goal.status}
+                    onChange={(e) => handleGoalChange(goal.id, 'status', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="active">Active</option>
+                    <option value="met">Met</option>
+                    <option value="discontinued">Discontinued</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveGoal(goal.id)}
+                    aria-label="Remove goal"
+                    className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleAddGoal}
+              className="mt-2 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium text-sm"
+            >
+              <Plus size={16} />
+              Add Goal
+            </button>
           </div>
 
           {/* Guardian Info */}

@@ -180,6 +180,137 @@ describe('patients and sessions', () => {
   });
 });
 
+describe('migration 1.3 -> 1.4', () => {
+  const seedV13 = () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: '1.3',
+      patients: [{ id: 'p1', firstName: 'A', lastName: 'B', dob: '2015-01-01', schoolId: null, school: '' }],
+      sessions: [{ id: 's1', patientId: 'p1', sessionDate: '2026-06-15', subjective: 'x', objectiveCategories: { balance: true }, objectiveNotes: 'y', assessment: 'z', plan: 'w', therExMinutes: 30, therActMinutes: 15 }],
+      schools: []
+    }));
+  };
+
+  test('adds goals, visitFrequency, and amendments to existing records', () => {
+    seedV13();
+    const data = store.init();
+
+    expect(data.version).toBe('1.4');
+    expect(data.patients[0].goals).toEqual([]);
+    expect(data.patients[0].visitFrequency).toBeNull();
+    expect(data.sessions[0].amendments).toEqual([]);
+    expect(readStorage().version).toBe('1.4');
+  });
+
+  test('is idempotent and preserves existing 1.4 fields', () => {
+    seedV13();
+    let data = store.init();
+    data = store.updatePatient(data, 'p1', {
+      goals: [{ id: 'g1', text: 'Climb stairs', targetDate: null, status: 'active', createdAt: '2026-07-01T00:00:00.000Z' }],
+      visitFrequency: { timesPerWeek: 2 }
+    });
+
+    const reloaded = store.init();
+    expect(reloaded.version).toBe('1.4');
+    expect(reloaded.patients[0].goals).toHaveLength(1);
+    expect(reloaded.patients[0].visitFrequency).toEqual({ timesPerWeek: 2 });
+  });
+
+  test('legacy repair path lands on 1.4 with all new fields', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      patients: [{ id: 'p1', firstName: 'A', lastName: 'B', dob: '2015-01-01', school: 'Lincoln Elementary', schoolId: null }],
+      sessions: [{ id: 's1', patientId: 'p1', sessionDate: '2026-06-15T00:00:00.000Z' }]
+    }));
+
+    const data = store.init();
+    expect(data.version).toBe('1.4');
+    expect(data.patients[0].schoolId).toBe(data.schools[0].id);
+    expect(data.patients[0].goals).toEqual([]);
+    expect(data.sessions[0].amendments).toEqual([]);
+  });
+});
+
+describe('amendment trail', () => {
+  const setup = () => {
+    let data = store.init();
+    data = store.addPatient(data, basePatient);
+    data = store.addSession(data, baseSession(data.patients[0].id));
+    return data;
+  };
+
+  test('editing note content records an amendment with the previous snapshot', () => {
+    let data = setup();
+    const sessionId = data.sessions[0].id;
+
+    data = store.updateSession(data, sessionId, { assessment: 'Updated assessment.' });
+
+    const session = data.sessions[0];
+    expect(session.amendments).toHaveLength(1);
+    expect(session.amendments[0].previous.assessment).toBe('Participated well.');
+    expect(session.amendments[0].amendedAt).toBeTruthy();
+    expect(session.assessment).toBe('Updated assessment.');
+  });
+
+  test('saving identical content does not record an amendment', () => {
+    let data = setup();
+    const sessionId = data.sessions[0].id;
+    const s = data.sessions[0];
+
+    data = store.updateSession(data, sessionId, {
+      sessionDate: s.sessionDate,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      subjective: s.subjective,
+      objectiveCategories: { ...s.objectiveCategories },
+      objectiveNotes: s.objectiveNotes,
+      assessment: s.assessment,
+      plan: s.plan,
+      therExMinutes: s.therExMinutes,
+      therActMinutes: s.therActMinutes
+    });
+
+    expect(data.sessions[0].amendments).toHaveLength(0);
+  });
+
+  test('legacy ISO session date is not treated as a change', () => {
+    let data = setup();
+    const sessionId = data.sessions[0].id;
+    // Simulate a legacy stored value
+    data = { ...data, sessions: data.sessions.map(s => ({ ...s, sessionDate: '2026-06-15T00:00:00.000Z', amendments: [] })) };
+
+    data = store.updateSession(data, sessionId, { sessionDate: '2026-06-15' });
+    expect(data.sessions[0].amendments).toHaveLength(0);
+  });
+
+  test('each edit appends to the history', () => {
+    let data = setup();
+    const sessionId = data.sessions[0].id;
+
+    data = store.updateSession(data, sessionId, { plan: 'Plan v2' });
+    data = store.updateSession(data, sessionId, { plan: 'Plan v3' });
+
+    expect(data.sessions[0].amendments).toHaveLength(2);
+    expect(data.sessions[0].amendments[0].previous.plan).toBe('Continue.');
+    expect(data.sessions[0].amendments[1].previous.plan).toBe('Plan v2');
+  });
+});
+
+describe('goals and visit frequency', () => {
+  test('addPatient stores goals and visit frequency', () => {
+    let data = store.init();
+    data = store.addPatient(data, {
+      ...basePatient,
+      goals: [{ id: 'g1', text: 'Ascend stairs with rail', targetDate: '2026-12-01', status: 'active', createdAt: '2026-07-01T00:00:00.000Z' }],
+      visitFrequency: { timesPerWeek: 2 }
+    });
+
+    expect(data.patients[0].goals).toHaveLength(1);
+    expect(data.patients[0].visitFrequency).toEqual({ timesPerWeek: 2 });
+
+    const stored = readStorage();
+    expect(stored.patients[0].goals[0].text).toBe('Ascend stairs with rail');
+  });
+});
+
 describe('importData', () => {
   test('imports a modern backup and persists the complete shape', () => {
     let data = store.init();

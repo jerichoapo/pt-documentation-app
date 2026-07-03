@@ -263,6 +263,57 @@ const RecentlyDeletedPage = () => {
     }
   };
 
+  // Shared between the table (md+) and card list (narrow screens)
+  const renderItemSummary = (item) => (
+    activeTab === 'patients' ? (
+      <>
+        <User className="text-gray-400 flex-shrink-0" size={20} />
+        <div>
+          <Link
+            to={`/recently-deleted/patients/${item.id}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            {item.firstName} {item.lastName}
+          </Link>
+          {item.diagnosis && (
+            <div className="text-sm text-gray-600">{item.diagnosis}</div>
+          )}
+        </div>
+      </>
+    ) : activeTab === 'sessions' ? (
+      <>
+        <FileText className="text-gray-400 flex-shrink-0" size={20} />
+        <div>
+          <Link
+            to={`/recently-deleted/sessions/${item.id}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Session on {formatDate(item.sessionDate)}
+          </Link>
+          <div className="text-sm text-gray-600">
+            {item.subjective?.substring(0, 50)}
+            {item.subjective?.length > 50 && '...'}
+          </div>
+        </div>
+      </>
+    ) : (
+      <>
+        <Building2 className="text-gray-400 flex-shrink-0" size={20} />
+        <div>
+          <Link
+            to={`/recently-deleted/schools/${item.id}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            {item.name}
+          </Link>
+          <div className="text-sm text-gray-600">
+            {item.city && item.state && `${item.city}, ${item.state}`}
+          </div>
+        </div>
+      </>
+    )
+  );
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -401,7 +452,51 @@ const RecentlyDeletedPage = () => {
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Card list on narrow screens */}
+          <div className="md:hidden divide-y divide-gray-200">
+            {currentItems.map(item => (
+              <div key={item.id} className="p-4 opacity-90">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.has(item.id)}
+                    onChange={() => handleSelectItem(item.id)}
+                    className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3">
+                      {renderItemSummary(item)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      Deleted {formatDate(item.deleted_at)}
+                      {' · '}
+                      {item.daysUntilPermanentDeletion} day{item.daysUntilPermanentDeletion !== 1 ? 's' : ''} left
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => handleRestore(item.id)}
+                        className="flex items-center gap-1 bg-blue-100 text-blue-700 px-4 py-3 rounded-lg hover:bg-blue-200 font-medium text-sm"
+                      >
+                        <RotateCcw size={14} />
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => handlePermanentDelete(item.id)}
+                        className="flex items-center gap-1 bg-red-100 text-red-700 px-4 py-3 rounded-lg hover:bg-red-200 font-medium text-sm"
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Table on md+ */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -427,53 +522,7 @@ const RecentlyDeletedPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        {activeTab === 'patients' ? (
-                          <>
-                            <User className="text-gray-400" size={20} />
-                            <div>
-                              <Link
-                                to={`/recently-deleted/patients/${item.id}`}
-                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                              >
-                                {item.firstName} {item.lastName}
-                              </Link>
-                              {item.diagnosis && (
-                                <div className="text-sm text-gray-600">{item.diagnosis}</div>
-                              )}
-                            </div>
-                          </>
-                        ) : activeTab === 'sessions' ? (
-                          <>
-                            <FileText className="text-gray-400" size={20} />
-                            <div>
-                              <Link
-                                to={`/recently-deleted/sessions/${item.id}`}
-                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                              >
-                                Session on {formatDate(item.sessionDate)}
-                              </Link>
-                              <div className="text-sm text-gray-600">
-                                {item.subjective?.substring(0, 50)}
-                                {item.subjective?.length > 50 && '...'}
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <Building2 className="text-gray-400" size={20} />
-                            <div>
-                              <Link
-                                to={`/recently-deleted/schools/${item.id}`}
-                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                              >
-                                {item.name}
-                              </Link>
-                              <div className="text-sm text-gray-600">
-                                {item.city && item.state && `${item.city}, ${item.state}`}
-                              </div>
-                            </div>
-                          </>
-                        )}
+                        {renderItemSummary(item)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -510,6 +559,7 @@ const RecentlyDeletedPage = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

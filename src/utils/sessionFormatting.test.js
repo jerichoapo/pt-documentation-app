@@ -1,4 +1,4 @@
-import { parseAppDate, toDateInputValue, formatDate, formatShortDate, formatDisplayPhone, getSessionDurationMinutes } from './sessionFormatting';
+import { parseAppDate, toDateInputValue, formatDate, formatShortDate, formatDisplayPhone, getSessionDurationMinutes, isPatientDueThisWeek } from './sessionFormatting';
 
 describe('parseAppDate', () => {
   test('parses plain date strings as local dates (no timezone day shift)', () => {
@@ -60,5 +60,40 @@ describe('getSessionDurationMinutes', () => {
     expect(getSessionDurationMinutes('14:00', '15:30')).toBe(90);
     expect(getSessionDurationMinutes('15:30', '14:00')).toBe(0);
     expect(getSessionDurationMinutes(null, '14:00')).toBe(0);
+  });
+});
+
+describe('isPatientDueThisWeek', () => {
+  // Wednesday July 1, 2026 (week runs Mon Jun 29 - Sun Jul 5)
+  const now = new Date(2026, 6, 1, 12, 0);
+  const patient = { id: 'p1', visitFrequency: { timesPerWeek: 2 } };
+
+  test('due when this week has fewer sessions than the frequency', () => {
+    const sessions = [
+      { patientId: 'p1', sessionDate: '2026-06-29' } // Monday, 1 of 2
+    ];
+    expect(isPatientDueThisWeek(patient, sessions, now)).toBe(true);
+  });
+
+  test('not due once the weekly frequency is met', () => {
+    const sessions = [
+      { patientId: 'p1', sessionDate: '2026-06-29' },
+      { patientId: 'p1', sessionDate: '2026-07-01' }
+    ];
+    expect(isPatientDueThisWeek(patient, sessions, now)).toBe(false);
+  });
+
+  test('ignores other patients, deleted sessions, and other weeks', () => {
+    const sessions = [
+      { patientId: 'p2', sessionDate: '2026-06-29' },
+      { patientId: 'p1', sessionDate: '2026-06-30', deleted_at: '2026-07-01T00:00:00.000Z' },
+      { patientId: 'p1', sessionDate: '2026-06-22' } // previous week
+    ];
+    expect(isPatientDueThisWeek(patient, sessions, now)).toBe(true);
+  });
+
+  test('never due without a frequency', () => {
+    expect(isPatientDueThisWeek({ id: 'p1', visitFrequency: null }, [], now)).toBe(false);
+    expect(isPatientDueThisWeek({ id: 'p1' }, [], now)).toBe(false);
   });
 });

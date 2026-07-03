@@ -1,7 +1,7 @@
 // Data store for managing patients and sessions with localStorage persistence
 
 const STORAGE_KEY = 'ptAppData';
-const STORAGE_VERSION = '1.3';
+const STORAGE_VERSION = '1.4';
 
 // Default empty data structure
 const createEmptyData = () => ({
@@ -19,6 +19,47 @@ const US_STATES = [
   'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
   'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
 ];
+
+// Sequential migration chain: each step upgrades one version so data walks
+// every upgrade regardless of where it starts. Steps are idempotent.
+const migrateData = (input) => {
+  let data = { ...input };
+
+  if (!data.version || data.version === '1.0') {
+    // 1.0 -> 1.1: soft-delete fields are added lazily on write; nothing structural
+    data.version = '1.1';
+  }
+
+  if (data.version === '1.1') {
+    data = {
+      ...data,
+      schools: Array.isArray(data.schools) ? data.schools : [],
+      version: '1.2'
+    };
+  }
+
+  if (data.version === '1.2') {
+    data = { ...migratePatientsToSchoolIds(data), version: '1.3' };
+  }
+
+  if (data.version === '1.3') {
+    data = {
+      ...data,
+      patients: data.patients.map(p => ({
+        ...p,
+        goals: Array.isArray(p.goals) ? p.goals : [],
+        visitFrequency: p.visitFrequency || null
+      })),
+      sessions: data.sessions.map(s => ({
+        ...s,
+        amendments: Array.isArray(s.amendments) ? s.amendments : []
+      })),
+      version: '1.4'
+    };
+  }
+
+  return data;
+};
 
 // Storage utilities with error handling
 const loadFromStorage = () => {
@@ -38,10 +79,10 @@ const loadFromStorage = () => {
     }
 
     // Repair partially-written data (older builds saved without schools/version).
-    // Missing schools are rebuilt from the patients' legacy school-name strings below.
+    // Forcing the version back to 1.2 makes the chain rebuild schools from the
+    // patients' legacy school-name strings and apply all later upgrades.
     if (!Array.isArray(parsed.schools)) {
-      const repaired = migratePatientsToSchoolIds({ ...parsed, schools: [] });
-      repaired.version = STORAGE_VERSION;
+      const repaired = migrateData({ ...parsed, schools: [], version: '1.2' });
       saveToStorage(repaired);
       return repaired;
     }
@@ -312,24 +353,8 @@ export const store = {
 
     // Migrate data if needed
     if (data.version !== STORAGE_VERSION) {
-      // Handle migration from 1.0 to 1.1 - add soft delete fields if missing
-      if (data.version === '1.0') {
-        // No specific migration needed - soft delete fields will be added when items are updated
-        data.version = STORAGE_VERSION;
-        saveToStorage(data);
-      }
-      // Handle migration from 1.1 to 1.2 - add schools array
-      else if (data.version === '1.1') {
-        data.schools = [];
-        data.version = STORAGE_VERSION;
-        saveToStorage(data);
-      }
-      // Handle migration from 1.2 to 1.3 - expand school schema and migrate patient school assignments
-      else if (data.version === '1.2') {
-        data = migratePatientsToSchoolIds(data);
-        data.version = STORAGE_VERSION;
-        saveToStorage(data);
-      }
+      data = migrateData(data);
+      saveToStorage(data);
     }
 
     // Run periodic cleanup of expired items (simulates background job)
@@ -632,6 +657,8 @@ export const store = {
       schoolId: schoolId,
       // Keep legacy field for backward compatibility
       school: patientData.school?.trim() || '',
+      goals: Array.isArray(patientData.goals) ? patientData.goals : [],
+      visitFrequency: patientData.visitFrequency || null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lastSessionDate: null,
@@ -836,9 +863,51 @@ export const store = {
     }
 
     const existingSession = data.sessions[sessionIndex];
+
+    // Clinical content fields; changing any of them records an amendment with
+    // a snapshot of what the note said before
+    const contentFields = [
+      'sessionDate', 'startTime', 'endTime', 'subjective', 'objectiveCategories',
+      'objectiveNotes', 'assessment', 'plan', 'therExMinutes', 'therActMinutes'
+    ];
+    const sameValue = (field, a, b) => {
+      if (field === 'sessionDate') {
+        // Treat 'YYYY-MM-DD' and its legacy ISO form as the same calendar date
+        const ta = new Date(a).getTime();
+        const tb = new Date(b).getTime();
+        return a === b || (!isNaN(ta) && ta === tb);
+      }
+      return JSON.stringify(a) === JSON.stringify(b);
+    };
+    const contentChanged = contentFields.some(
+      field => field in updates && !sameValue(field, updates[field], existingSession[field])
+    );
+
+    const amendments = contentChanged
+      ? [
+          ...(existingSession.amendments || []),
+          {
+            amendedAt: new Date().toISOString(),
+            previous: {
+              sessionDate: existingSession.sessionDate,
+              startTime: existingSession.startTime,
+              endTime: existingSession.endTime,
+              subjective: existingSession.subjective,
+              objectiveCategories: existingSession.objectiveCategories,
+              objectiveNotes: existingSession.objectiveNotes,
+              assessment: existingSession.assessment,
+              plan: existingSession.plan,
+              therExMinutes: existingSession.therExMinutes,
+              therActMinutes: existingSession.therActMinutes
+            }
+          }
+        ]
+      : existingSession.amendments || [];
+
     const updatedSession = {
       ...existingSession,
       ...updates,
+      amendments,
       updatedAt: new Date().toISOString()
     };
 
@@ -1115,17 +1184,15 @@ export const store = {
       throw new Error('INVALID_BACKUP');
     }
 
-    let data = {
-      version: STORAGE_VERSION,
+    // Run the full migration chain from 1.2 regardless of the backup's age:
+    // school relinking and later upgrades are idempotent, and this also
+    // recomputes patient counts.
+    let data = migrateData({
+      version: '1.2',
       patients: raw.patients,
       sessions: raw.sessions,
       schools: Array.isArray(raw.schools) ? raw.schools : []
-    };
-
-    // Idempotent: keeps existing schoolId links, creates schools for legacy
-    // name strings, and recomputes patient counts.
-    data = migratePatientsToSchoolIds(data);
-    data.version = STORAGE_VERSION;
+    });
     data = store.purgeExpiredItems(data);
 
     saveToStorage(data);

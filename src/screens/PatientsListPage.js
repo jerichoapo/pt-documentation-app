@@ -2,12 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Search, Plus, X } from 'lucide-react';
 import { usePatients, usePatientData } from '../context/PatientDataContext';
-import { parseAppDate, formatShortDate } from '../utils/sessionFormatting';
+import { parseAppDate, formatShortDate, isPatientDueThisWeek } from '../utils/sessionFormatting';
 
 const PatientsListPage = () => {
   const navigate = useNavigate();
   const patients = usePatients();
-  const { getSchoolById } = usePatientData();
+  const { getSchoolById, sessions } = usePatientData();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -122,7 +122,47 @@ const PatientsListPage = () => {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Card list on narrow screens */}
+          <div className="md:hidden divide-y divide-gray-200">
+            {filteredPatients.map(patient => (
+              <button
+                key={patient.id}
+                onClick={() => handlePatientClick(patient.id)}
+                className="w-full text-left p-4 hover:bg-gray-50"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium text-gray-900 flex items-center gap-2">
+                    {patient.firstName} {patient.lastName}
+                    {isPatientDueThisWeek(patient, sessions) && (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">
+                        Due
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-500 flex-shrink-0">
+                    {calculateAge(patient.dob)} yrs
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {patient.diagnosis || 'No diagnosis'}
+                </div>
+                <div className="text-sm text-gray-500 mt-1">
+                  {getSchoolName(patient) || 'No school'}
+                  {patient.grade ? ` · Grade ${patient.grade}` : ''}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {patient.lastSessionDate
+                    ? `Last session ${formatShortDate(patient.lastSessionDate)}`
+                    : 'No sessions'}
+                  {' · '}{patient.sessionCount || 0} total
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Table on md+ */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -143,8 +183,13 @@ const PatientsListPage = () => {
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
                   >
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                         {patient.firstName} {patient.lastName}
+                        {isPatientDueThisWeek(patient, sessions) && (
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">
+                            Due
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -185,7 +230,17 @@ const PatientsListPage = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
+      </div>
+
+      <div className="mt-6 text-center">
+        <Link
+          to="/recently-deleted"
+          className="text-sm text-gray-500 hover:text-gray-700 underline"
+        >
+          Recently Deleted
+        </Link>
       </div>
     </div>
   );

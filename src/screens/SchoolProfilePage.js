@@ -1,13 +1,17 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Edit, ArrowLeft } from 'lucide-react';
+import { Edit, ArrowLeft, Users, ChevronRight } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
+import { formatShortDate } from '../utils/sessionFormatting';
 
 const SchoolProfilePage = () => {
   const { schoolId } = useParams();
-  const { getSchoolById, isLoading } = usePatientData();
+  const { getSchoolById, getPatientsForSchool, isLoading } = usePatientData();
 
   const school = getSchoolById(schoolId);
+  const assignedPatients = [...getPatientsForSchool(schoolId)].sort((a, b) =>
+    `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+  );
 
   if (isLoading) {
     return (
@@ -158,6 +162,44 @@ const SchoolProfilePage = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Assigned Patients */}
+      <div className="bg-white shadow-sm rounded-lg p-6 mt-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="text-gray-500" size={20} />
+          <h3 className="text-lg font-medium text-gray-900">
+            Assigned Patients ({assignedPatients.length})
+          </h3>
+        </div>
+
+        {assignedPatients.length === 0 ? (
+          <p className="text-gray-600 text-sm py-2">No patients assigned to this school.</p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {assignedPatients.map(patient => (
+              <Link
+                key={patient.id}
+                to={`/patients/${patient.id}`}
+                className="flex items-center justify-between py-3 px-2 -mx-2 rounded-lg hover:bg-gray-50"
+              >
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {patient.firstName} {patient.lastName}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {patient.grade ? `Grade ${patient.grade}` : 'Grade not specified'}
+                    {' · '}
+                    {patient.lastSessionDate
+                      ? `Last session ${formatShortDate(patient.lastSessionDate)}`
+                      : 'No sessions yet'}
+                  </div>
+                </div>
+                <ChevronRight className="text-gray-400 flex-shrink-0" size={18} />
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

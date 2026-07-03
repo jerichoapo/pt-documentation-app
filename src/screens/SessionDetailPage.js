@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2, Download } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2, Download, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { useSession, usePatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
+import { formatDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
 import { exportSingleNoteToPDF, exportSingleNoteToDOCX } from '../utils/exportNotes';
 import ExportFormatModal from '../components/ExportFormatModal';
 
@@ -24,6 +24,7 @@ const SessionDetailPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Initialize edited session when session loads
   useEffect(() => {
@@ -247,6 +248,14 @@ const SessionDetailPage = () => {
                 <span>{formatDate(session.sessionDate)}</span>
               )}
             </div>
+            {(session.amendments || []).length > 0 && (
+              <span
+                className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold"
+                title="This note was edited after it was first saved"
+              >
+                Amended {formatShortDate(session.amendments[session.amendments.length - 1].amendedAt)}
+              </span>
+            )}
             <div className="flex items-center gap-2">
               <Clock size={16} />
               {isEditing ? (
@@ -448,6 +457,49 @@ const SessionDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {(session.amendments || []).length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <button
+            onClick={() => setHistoryOpen(!historyOpen)}
+            className="w-full flex items-center justify-between"
+          >
+            <span className="flex items-center gap-2 text-lg font-bold text-gray-800">
+              <History size={20} className="text-amber-600" />
+              Amendment History ({session.amendments.length})
+            </span>
+            {historyOpen ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+          </button>
+
+          {historyOpen && (
+            <div className="mt-4 space-y-6">
+              {[...session.amendments].reverse().map((amendment, index) => (
+                <div key={amendment.amendedAt + index} className="border-l-4 border-amber-300 pl-4">
+                  <p className="text-sm font-semibold text-gray-800">
+                    Amended {new Date(amendment.amendedAt).toLocaleString([], {
+                      year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+                    })}
+                  </p>
+                  <p className="text-xs text-gray-500 mb-2">Note content before this edit:</p>
+                  <div className="text-sm text-gray-700 space-y-1.5">
+                    <p>
+                      <span className="font-semibold">Session:</span>{' '}
+                      {formatShortDate(amendment.previous.sessionDate)}
+                      {amendment.previous.startTime && amendment.previous.endTime &&
+                        ` · ${formatTimeRange(amendment.previous.startTime, amendment.previous.endTime)}`}
+                      {` · TherEx ${amendment.previous.therExMinutes || 0} min · TherAct ${amendment.previous.therActMinutes || 0} min`}
+                    </p>
+                    <p className="whitespace-pre-wrap"><span className="font-semibold">Subjective:</span> {amendment.previous.subjective || '—'}</p>
+                    <p className="whitespace-pre-wrap"><span className="font-semibold">Objective:</span> {amendment.previous.objectiveNotes || '—'}</p>
+                    <p className="whitespace-pre-wrap"><span className="font-semibold">Assessment:</span> {amendment.previous.assessment || '—'}</p>
+                    <p className="whitespace-pre-wrap"><span className="font-semibold">Plan:</span> {amendment.previous.plan || '—'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <ExportFormatModal
         isOpen={isExportModalOpen}

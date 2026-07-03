@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Download, Upload, User, ChevronRight, HardDrive } from 'lucide-react';
+import { ArrowLeft, Download, Upload, User, ChevronRight, HardDrive, Trash2 } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -153,7 +153,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Profile link */}
-      <div className="bg-white rounded-lg shadow-md">
+      <div className="bg-white rounded-lg shadow-md mb-6">
         <Link
           to="/settings/profile"
           className="flex items-center justify-between p-6 hover:bg-gray-50 rounded-lg"
@@ -163,6 +163,23 @@ const SettingsPage = () => {
             <div>
               <div className="font-semibold text-gray-800">Provider Profile</div>
               <div className="text-sm text-gray-600">Name, credentials, and license shown on exported notes</div>
+            </div>
+          </div>
+          <ChevronRight className="text-gray-400" size={20} />
+        </Link>
+      </div>
+
+      {/* Recently Deleted link */}
+      <div className="bg-white rounded-lg shadow-md">
+        <Link
+          to="/recently-deleted"
+          className="flex items-center justify-between p-6 hover:bg-gray-50 rounded-lg"
+        >
+          <div className="flex items-center gap-3">
+            <Trash2 className="text-gray-500" size={20} />
+            <div>
+              <div className="font-semibold text-gray-800">Recently Deleted</div>
+              <div className="text-sm text-gray-600">Restore or permanently remove items deleted in the last 30 days</div>
             </div>
           </div>
           <ChevronRight className="text-gray-400" size={20} />

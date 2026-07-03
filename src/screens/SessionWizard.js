@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, FileText, Home } from 'lucide-react';
+import { Calendar, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Check, Edit2, Save, User, Clock, FileText, Home, History } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { parseAppDate, toDateInputValue } from '../utils/sessionFormatting';
+import { parseAppDate, toDateInputValue, formatDate } from '../utils/sessionFormatting';
 
 const DRAFT_KEY = 'ptAppSessionDraft';
 
@@ -37,14 +37,15 @@ const SessionWizard = () => {
   const { patientId, section } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { getPatientById, addSession } = usePatientData();
+  const { getPatientById, getSessionById, getSessionsForPatient, addSession } = usePatientData();
   const { addToast } = useToastContext();
   const confirm = useConfirm();
 
-  // Extract referrer and pre-selected date from query parameters
+  // Extract referrer, pre-selected date, and copy-forward source from query parameters
   const searchParams = new URLSearchParams(location.search);
   const referrer = searchParams.get('referrer') || 'profile';
   const dateParam = searchParams.get('date');
+  const copyFromId = searchParams.get('copyFrom');
 
   const [currentStep, setCurrentStep] = useState(section === 'subjective' ? 1 : 0);
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -74,6 +75,13 @@ const SessionWizard = () => {
   });
 
   const patient = getPatientById(patientId);
+
+  // Most recent note, used for the "last session" peek on each SOAP step
+  const lastSession = getSessionsForPatient(patientId)[0] || null;
+  const [peekOpen, setPeekOpen] = useState(false);
+  useEffect(() => {
+    setPeekOpen(false);
+  }, [currentStep]);
 
   const getCurrentTimeDefaults = () => {
     const now = new Date();
@@ -108,6 +116,7 @@ const SessionWizard = () => {
   // Offer to resume an unsaved draft for this patient; autosave only begins
   // after that decision so the prompt's draft can't be overwritten.
   const draftPromptShown = useRef(false);
+  const draftResumed = useRef(false);
   const [draftReady, setDraftReady] = useState(false);
 
   useEffect(() => {
@@ -134,6 +143,7 @@ const SessionWizard = () => {
       });
 
       if (resume) {
+        draftResumed.current = true;
         try {
           const s = draft.state;
           if (s.soapNote && s.soapNote.objectiveCategories) setSoapNote(s.soapNote);
@@ -196,6 +206,49 @@ const SessionWizard = () => {
     return () => clearTimeout(timer);
   }, [draftReady, soapNote, selectedDate, sessionStartTime, sessionEndTime, therExMinutes, therActMinutes, currentStep, patientId]);
 
+  // ---- Copy-forward ----
+  // Prefill from the session named by ?copyFrom, once the draft decision is
+  // settled. A resumed draft outranks the prefill; discarding it applies the
+  // prefill. Date and times are intentionally NOT copied - only the content.
+  const copyFromSource = copyFromId ? getSessionById(copyFromId) : null;
+  const copyHandled = useRef(false);
+
+  useEffect(() => {
+    if (!draftReady || copyHandled.current) return;
+    if (!copyFromId || draftResumed.current) {
+      copyHandled.current = true;
+      return;
+    }
+    if (!copyFromSource) return; // wait for data to load; bad ids just never apply
+    if (copyFromSource.patientId !== patientId) {
+      copyHandled.current = true;
+      return;
+    }
+
+    copyHandled.current = true;
+    setSoapNote(prev => {
+      if (soapHasContent(prev)) return prev; // never clobber typed content
+      return {
+        subjective: copyFromSource.subjective || '',
+        objectiveCategories: {
+          balance: false,
+          motorSkills: false,
+          therapeuticActivities: false,
+          transfers: false,
+          classroomMobility: false,
+          ...(copyFromSource.objectiveCategories || {})
+        },
+        objectiveNotes: copyFromSource.objectiveNotes || '',
+        assessment: copyFromSource.assessment || '',
+        plan: copyFromSource.plan || ''
+      };
+    });
+    setTherExMinutes(copyFromSource.therExMinutes || 0);
+    setTherActMinutes(copyFromSource.therActMinutes || 0);
+    addToast(`Prefilled from the ${formatDate(copyFromSource.sessionDate)} session - update what changed before saving`, 'info');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftReady, copyFromSource, copyFromId, patientId]);
+
   const steps = [
     { name: 'Calendar', icon: Calendar },
     { name: 'Subjective', icon: User },
@@ -213,10 +266,6 @@ const SessionWizard = () => {
     { key: 'transfers', label: 'Transfers & Positioning' },
     { key: 'classroomMobility', label: 'Classroom Mobility' }
   ];
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  };
 
   const formatTime = (timeString) => {
     if (!timeString) return 'N/A';
@@ -364,8 +413,59 @@ const SessionWizard = () => {
     }
   };
 
+  // Read-only reference strip showing the same section from the most recent
+  // note, so progress can be written against last session without leaving
+  // the wizard
+  const renderLastSessionPeek = (section) => {
+    if (!lastSession) return null;
+
+    const sectionContent = {
+      subjective: lastSession.subjective,
+      objective: lastSession.objectiveNotes,
+      assessment: lastSession.assessment,
+      plan: lastSession.plan
+    }[section];
+
+    const activeCategories = section === 'objective'
+      ? objectiveOptions.filter(opt => lastSession.objectiveCategories?.[opt.key])
+      : [];
+
+    return (
+      <div className="mb-4 border border-gray-200 rounded-lg bg-gray-50">
+        <button
+          type="button"
+          onClick={() => setPeekOpen(!peekOpen)}
+          className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+        >
+          <span className="flex items-center gap-2">
+            <History size={16} />
+            Last session — {formatDate(lastSession.sessionDate)}
+          </span>
+          {peekOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        {peekOpen && (
+          <div className="px-4 pb-3 text-sm text-gray-700">
+            {activeCategories.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {activeCategories.map(opt => (
+                  <span
+                    key={opt.key}
+                    className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                  >
+                    {opt.label}
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="whitespace-pre-wrap">{sectionContent || 'Nothing recorded for this section.'}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderStepIndicator = () => (
-    <div className="mb-8">
+    <div className="mb-8 overflow-x-auto">
       <div className="flex items-center justify-between max-w-4xl mx-auto">
         {steps.map((step, index) => {
           const Icon = step.icon;
@@ -382,7 +482,7 @@ const SessionWizard = () => {
                 <button
                   onClick={() => index !== 6 && setCurrentStep(index)}
                   disabled={index === 6}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-lg scale-110'
                       : hasContent
@@ -392,7 +492,7 @@ const SessionWizard = () => {
                 >
                   <Icon size={24} />
                 </button>
-                <span className={`mt-2 text-xs font-medium ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
+                <span className={`hidden sm:block mt-2 text-xs font-medium ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
                   {step.name}
                 </span>
               </div>
@@ -481,6 +581,8 @@ const SessionWizard = () => {
           <p className="text-sm text-gray-600">{patient?.diagnosis}</p>
         </div>
 
+        {renderLastSessionPeek('subjective')}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Subjective Notes
@@ -497,7 +599,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -525,6 +627,8 @@ const SessionWizard = () => {
         <div className="mb-6 pb-4 border-b">
           <h3 className="text-lg font-semibold text-gray-700">Patient: {patient?.firstName} {patient?.lastName}</h3>
         </div>
+
+        {renderLastSessionPeek('objective')}
 
         <div className="mb-6">
           <h4 className="text-md font-semibold text-gray-700 mb-3">Objective Categories</h4>
@@ -566,7 +670,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -595,6 +699,23 @@ const SessionWizard = () => {
           <h3 className="text-lg font-semibold text-gray-700">Patient: {patient?.firstName} {patient?.lastName}</h3>
         </div>
 
+        {renderLastSessionPeek('assessment')}
+
+        {(patient?.goals || []).filter(g => g.status === 'active').length > 0 && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-1">
+              Active goals
+            </p>
+            <ol className="text-sm text-blue-900 list-decimal list-inside space-y-0.5">
+              {patient.goals
+                .filter(g => g.status === 'active')
+                .map(g => (
+                  <li key={g.id}>{g.text}</li>
+                ))}
+            </ol>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Clinical Assessment
@@ -611,7 +732,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -640,6 +761,8 @@ const SessionWizard = () => {
           <h3 className="text-lg font-semibold text-gray-700">Patient: {patient?.firstName} {patient?.lastName}</h3>
         </div>
 
+        {renderLastSessionPeek('plan')}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Treatment Plan
@@ -656,7 +779,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -691,14 +814,14 @@ const SessionWizard = () => {
                 <span className="ml-2 text-blue-600">({formatDuration(getSessionDurationMinutes(sessionStartTime, sessionEndTime))})</span>
               )}
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <input
                 type="date"
                 value={toDateInputValue(selectedDate)}
                 onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Start Time</label>
                   <input
@@ -747,6 +870,18 @@ const SessionWizard = () => {
                 </div>
               </div>
             </div>
+            {(() => {
+              const duration = getSessionDurationMinutes(sessionStartTime, sessionEndTime);
+              const combined = therExMinutes + therActMinutes;
+              if (duration > 0 && combined > duration) {
+                return (
+                  <div className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                    Combined minutes ({combined}) exceed the session length ({duration}). Double-check the times or minutes — you can still save.
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </div>
 
@@ -785,7 +920,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"

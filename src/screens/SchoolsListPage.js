@@ -115,7 +115,68 @@ const SchoolsListPage = () => {
           </Link>
         </div>
       ) : (
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+        <>
+        {/* Card list on narrow screens */}
+        <div className="md:hidden bg-white shadow-sm rounded-lg overflow-hidden divide-y divide-gray-200">
+          {filteredSchools.map((school) => {
+            const patientCount = getPatientCountForSchool(school.id);
+            const mapsUrl = createGoogleMapsUrl(school);
+            const address = `${school.street_address}, ${school.city}, ${school.state} ${school.zip_code}`;
+
+            return (
+              <div key={school.id} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <Link
+                    to={`/schools/${school.id}`}
+                    className="font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    {school.name}
+                  </Link>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Link
+                      to={`/schools/${school.id}/edit`}
+                      className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-indigo-600 hover:bg-indigo-50"
+                      aria-label={`Edit ${school.name}`}
+                    >
+                      <Edit size={18} />
+                    </Link>
+                    <button
+                      onClick={() => handleDeleteClick(school)}
+                      className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
+                      aria-label={`Delete ${school.name}`}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+                {school.street_address && (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
+                  >
+                    <MapPin size={14} className="flex-shrink-0" />
+                    {address}
+                  </a>
+                )}
+                <div className="text-sm text-gray-600 mt-1">
+                  {school.point_of_contact}{school.phone ? ` · ${school.phone}` : ''}
+                </div>
+                <button
+                  onClick={() => handlePatientCountClick(school.id)}
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-2"
+                >
+                  <Users size={14} />
+                  {patientCount} patient{patientCount !== 1 ? 's' : ''}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Table on md+ */}
+        <div className="hidden md:block bg-white shadow-sm rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -192,18 +253,20 @@ const SchoolsListPage = () => {
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <Link
                           to={`/schools/${school.id}/edit`}
-                          className="text-indigo-600 hover:text-indigo-900"
+                          className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-indigo-600 hover:bg-indigo-50"
+                          aria-label={`Edit ${school.name}`}
                         >
-                          <Edit size={16} />
+                          <Edit size={18} />
                         </Link>
                         <button
                           onClick={() => handleDeleteClick(school)}
-                          className="text-red-600 hover:text-red-900"
+                          className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
+                          aria-label={`Delete ${school.name}`}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
@@ -213,6 +276,7 @@ const SchoolsListPage = () => {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* Delete Confirmation Modal */}

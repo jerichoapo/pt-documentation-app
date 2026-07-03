@@ -29,6 +29,18 @@ const formatSOAPContent = (session, patient, provider) => {
   const licenseNumber = provider?.license ? `License Number: ${provider.license}` : '';
   const signatureName = providerName !== 'N/A' ? providerName : '';
 
+  const formatExportDate = (value) => parseAppDate(value).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const goals = (patient.goals || []).filter(g => g.status === 'active');
+
+  const amendmentNote = (session.amendments || []).length > 0
+    ? `Amendment history: originally documented ${session.createdAt ? formatExportDate(session.createdAt) : 'earlier'}; amended ${session.amendments.map(a => formatExportDate(a.amendedAt)).join(', ')}.`
+    : '';
+
   return {
     patientName: `${patient.firstName} ${patient.lastName}`,
     sessionDate,
@@ -42,6 +54,8 @@ const formatSOAPContent = (session, patient, provider) => {
     },
     assessment: session.assessment || 'N/A',
     plan: session.plan || 'N/A',
+    goals,
+    amendmentNote,
     providerName: `${providerName}${credentials}`,
     signatureName,
     licenseNumber
@@ -110,6 +124,20 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
         margin: [0, 0, 0, 20]
       },
 
+      // Active goals
+      ...(content.goals.length > 0 ? [
+        {
+          text: 'Goals:',
+          style: 'headerLine',
+          margin: [0, 0, 0, 5]
+        },
+        {
+          text: content.goals.map((g, i) => `${i + 1}. ${g.text}`).join('\n'),
+          style: 'bodyText',
+          margin: [0, 0, 0, 20]
+        }
+      ] : []),
+
       // SOAP Sections
       {
         text: 'SUBJECTIVE',
@@ -171,6 +199,11 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
         style: 'providerInfo',
         margin: [0, 0, 0, 5]
       },
+      ...(content.amendmentNote ? [{
+        text: content.amendmentNote,
+        style: 'disclaimer',
+        margin: [0, 0, 0, 3]
+      }] : []),
       {
         text: 'Electronically signed',
         style: 'disclaimer'
@@ -270,6 +303,20 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
         margin: [0, 0, 0, 20]
       },
 
+      // Active goals
+      ...(sessionContent.goals.length > 0 ? [
+        {
+          text: 'Goals:',
+          style: 'headerLine',
+          margin: [0, 0, 0, 5]
+        },
+        {
+          text: sessionContent.goals.map((g, i) => `${i + 1}. ${g.text}`).join('\n'),
+          style: 'bodyText',
+          margin: [0, 0, 0, 20]
+        }
+      ] : []),
+
       // SOAP Sections
       {
         text: 'SUBJECTIVE',
@@ -331,6 +378,11 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
         style: 'providerInfo',
         margin: [0, 0, 0, 5]
       },
+      ...(sessionContent.amendmentNote ? [{
+        text: sessionContent.amendmentNote,
+        style: 'disclaimer',
+        margin: [0, 0, 0, 3]
+      }] : []),
       {
         text: 'Electronically signed',
         style: 'disclaimer',
@@ -457,6 +509,24 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
     })
   );
 
+  // Active goals
+  if (content.goals.length > 0) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Goals:', size: 24 })],
+        spacing: { after: 100 }
+      })
+    );
+    content.goals.forEach((goal, index) => {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: `${index + 1}. ${goal.text}`, size: 22 })],
+          spacing: { after: index === content.goals.length - 1 ? 400 : 100 }
+        })
+      );
+    });
+  }
+
   // SOAP Sections
   const sections = [
     { title: 'SUBJECTIVE', content: content.subjective },
@@ -572,6 +642,22 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
     );
   }
 
+  // Amendment history
+  if (content.amendmentNote) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: content.amendmentNote,
+            size: 18,
+            color: '999999'
+          })
+        ],
+        spacing: { after: 100 }
+      })
+    );
+  }
+
   // Disclaimer
   children.push(
     new Paragraph({
@@ -679,6 +765,24 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
         spacing: { after: 400 }
       })
     );
+
+    // Active goals
+    if (sessionContent.goals.length > 0) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: 'Goals:', size: 24 })],
+          spacing: { after: 100 }
+        })
+      );
+      sessionContent.goals.forEach((goal, goalIndex) => {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: `${goalIndex + 1}. ${goal.text}`, size: 22 })],
+            spacing: { after: goalIndex === sessionContent.goals.length - 1 ? 400 : 100 }
+          })
+        );
+      });
+    }
 
     // SOAP Sections
     const sections = [
@@ -788,6 +892,22 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
               text: sessionContent.licenseNumber,
               italics: true,
               size: 22
+            })
+          ],
+          spacing: { after: 100 }
+        })
+      );
+    }
+
+    // Amendment history
+    if (sessionContent.amendmentNote) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: sessionContent.amendmentNote,
+              size: 18,
+              color: '999999'
             })
           ],
           spacing: { after: 100 }
