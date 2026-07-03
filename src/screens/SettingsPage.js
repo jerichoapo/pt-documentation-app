@@ -13,6 +13,9 @@ const activeCounts = (data) => ({
   schools: data.schools.filter(s => !s.deleted_at).length
 });
 
+const plural = (count, noun) => `${count} ${noun}${count === 1 ? '' : 's'}`;
+const countsLine = (c) => `${plural(c.patients, 'patient')}, ${plural(c.sessions, 'note')}, ${plural(c.schools, 'school')}`;
+
 const SettingsPage = () => {
   const { patients, sessions, schools, exportData, importData } = usePatientData();
   const { addToast } = useToastContext();
@@ -70,8 +73,8 @@ const SettingsPage = () => {
       title: 'Replace all data with this backup?',
       message:
         `This replaces everything currently in the app.\n\n` +
-        `Current: ${current.patients} patients, ${current.sessions} notes, ${current.schools} schools\n` +
-        `Backup: ${incoming.patients} patients, ${incoming.sessions} notes, ${incoming.schools} schools`,
+        `Current: ${countsLine(current)}\n` +
+        `Backup: ${countsLine(incoming)}`,
       confirmLabel: 'Replace Data',
       danger: true
     });

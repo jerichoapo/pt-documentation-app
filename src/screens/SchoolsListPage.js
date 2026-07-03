@@ -72,6 +72,8 @@ const SchoolsListPage = () => {
     );
   }
 
+  const deleteConfirmPatientCount = deleteConfirm ? getPatientCountForSchool(deleteConfirm.id) : 0;
+
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
@@ -287,11 +289,11 @@ const SchoolsListPage = () => {
             <p className="text-gray-600 mb-4">
               Move "{deleteConfirm.name}" to Recently Deleted? You can restore it within 30 days.
             </p>
-            {getPatientCountForSchool(deleteConfirm.id) > 0 && (
+            {deleteConfirmPatientCount > 0 && (
               <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
                 <p className="text-red-800 text-sm">
-                  ⚠️ This school has {getPatientCountForSchool(deleteConfirm.id)} assigned patients.
-                  You must reassign these patients to other schools before deleting.
+                  ⚠️ This school has {deleteConfirmPatientCount} assigned patient{deleteConfirmPatientCount === 1 ? '' : 's'}.
+                  You must reassign {deleteConfirmPatientCount === 1 ? 'this patient' : 'these patients'} to other schools before deleting.
                 </p>
               </div>
             )}
@@ -304,7 +306,7 @@ const SchoolsListPage = () => {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                disabled={getPatientCountForSchool(deleteConfirm.id) > 0}
+                disabled={deleteConfirmPatientCount > 0}
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Move to Recently Deleted

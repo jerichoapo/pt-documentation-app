@@ -301,7 +301,7 @@ export const PatientDataProvider = ({ children }) => {
 
       // Show success toast
       const message = sessionCount > 0
-        ? `Patient and ${sessionCount} notes moved to Recently Deleted`
+        ? `Patient and ${sessionCount} note${sessionCount === 1 ? '' : 's'} moved to Recently Deleted`
         : 'Patient moved to Recently Deleted';
       addToast(message, 'success');
 
@@ -357,7 +357,7 @@ export const PatientDataProvider = ({ children }) => {
 
       // Show success toast
       const message = cascadeSessions > 0
-        ? `Patient and ${cascadeSessions} notes restored successfully`
+        ? `Patient and ${cascadeSessions} note${cascadeSessions === 1 ? '' : 's'} restored successfully`
         : 'Patient restored successfully';
       addToast(message, 'success');
 
@@ -517,8 +517,8 @@ export const PatientDataProvider = ({ children }) => {
       return schoolToDelete;
     } catch (error) {
       if (error.message.startsWith('CANNOT_DELETE:')) {
-        const patientCount = error.message.replace('CANNOT_DELETE:', '');
-        addToast(`Cannot delete school with ${patientCount} assigned patients. Please reassign patients first.`, 'error');
+        const patientCount = Number(error.message.replace('CANNOT_DELETE:', ''));
+        addToast(`Cannot delete school with ${patientCount} assigned patient${patientCount === 1 ? '' : 's'}. Please reassign ${patientCount === 1 ? 'the patient' : 'the patients'} first.`, 'error');
       } else {
         addToast('Failed to delete school', 'error');
         dispatch({
@@ -547,8 +547,8 @@ export const PatientDataProvider = ({ children }) => {
       return schoolToDelete;
     } catch (error) {
       if (error.message.startsWith('CANNOT_DELETE:')) {
-        const patientCount = error.message.replace('CANNOT_DELETE:', '');
-        addToast(`Cannot delete school with ${patientCount} assigned patients. Please reassign patients first.`, 'error');
+        const patientCount = Number(error.message.replace('CANNOT_DELETE:', ''));
+        addToast(`Cannot delete school with ${patientCount} assigned patient${patientCount === 1 ? '' : 's'}. Please reassign ${patientCount === 1 ? 'the patient' : 'the patients'} first.`, 'error');
       } else {
         addToast('Failed to delete school', 'error');
         dispatch({

@@ -7,6 +7,11 @@ import { useConfirm } from '../context/ConfirmContext';
 import { formatDate } from '../utils/sessionFormatting';
 import RestoreNoteDecisionModal from '../components/RestoreNoteDecisionModal';
 
+// The 'sessions' tab is labeled "Notes" in the UI, so user-facing text must say
+// "note", never "session"
+const TAB_NOUNS = { patients: 'patient', sessions: 'note', schools: 'school' };
+const countNoun = (tab, count) => `${count} ${TAB_NOUNS[tab]}${count === 1 ? '' : 's'}`;
+
 const RecentlyDeletedPage = () => {
   const {
     getRecentlyDeletedPatients,
@@ -177,7 +182,7 @@ const RecentlyDeletedPage = () => {
   const handleBulkRestore = async () => {
     const count = selectedItems.size;
 
-    let confirmMessage = `Restore ${count} ${activeTab}?`;
+    let confirmMessage = `Restore ${countNoun(activeTab, count)}?`;
     if (activeTab === 'sessions') {
       const orphanCount = [...selectedItems].filter(id => {
         const session = sessions.find(s => s.id === id);
@@ -185,7 +190,12 @@ const RecentlyDeletedPage = () => {
         return patient && patient.deleted_at;
       }).length;
       if (orphanCount > 0) {
-        confirmMessage = `Restore ${count} notes? ${orphanCount} of them belong to deleted patients and won't appear anywhere until those patients are restored.`;
+        const orphanNote = count === 1
+          ? `It belongs to a deleted patient and won't appear anywhere until the patient is restored.`
+          : orphanCount === 1
+            ? `1 of them belongs to a deleted patient and won't appear anywhere until that patient is restored.`
+            : `${orphanCount} of them belong to deleted patients and won't appear anywhere until those patients are restored.`;
+        confirmMessage = `Restore ${countNoun('sessions', count)}? ${orphanNote}`;
       }
     }
 
@@ -216,7 +226,7 @@ const RecentlyDeletedPage = () => {
     const count = selectedItems.size;
     const confirmed = await confirm({
       title: 'Delete permanently?',
-      message: `Permanently delete ${count} ${activeTab}? This action cannot be undone and the data will be lost forever.`,
+      message: `Permanently delete ${countNoun(activeTab, count)}? This action cannot be undone and the data will be lost forever.`,
       confirmLabel: `Delete ${count} Permanently`,
       danger: true
     });
@@ -242,7 +252,7 @@ const RecentlyDeletedPage = () => {
     const count = currentItems.length;
     const confirmed = await confirm({
       title: 'Empty trash?',
-      message: `Permanently delete all ${count} ${activeTab}? This action cannot be undone and the data will be lost forever.`,
+      message: `Permanently delete ${count === 1 ? countNoun(activeTab, count) : `all ${countNoun(activeTab, count)}`}? This action cannot be undone and the data will be lost forever.`,
       confirmLabel: 'Empty Trash',
       danger: true
     });
@@ -441,7 +451,7 @@ const RecentlyDeletedPage = () => {
           <div className="p-12 text-center">
             <FileText className="mx-auto text-gray-400 mb-4" size={48} />
             <p className="text-gray-600 mb-4">
-              No {activeTab} in Recently Deleted.
+              No {TAB_NOUNS[activeTab]}s in Recently Deleted.
             </p>
             <Link
               to="/"

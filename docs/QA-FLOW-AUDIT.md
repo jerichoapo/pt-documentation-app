@@ -84,7 +84,8 @@ expected behavior here was verified in a live walkthrough on that date.
 - [ ] Read-only profile with all fields, plus an "Assigned Patients (0)" section
       showing "No patients assigned to this school."
 2. Edit School, change a field, Save.
-- [ ] "School updated successfully" toast; change visible on the profile.
+- [ ] "School updated successfully" toast; you land back on the Schools list and
+      the change is visible there (and on the profile when you reopen it).
 
 ## 4. Patients
 
@@ -268,7 +269,8 @@ Reach it via Settings → Recently Deleted, or the link under the Patients list.
 - [ ] The note is listed with its session date, a snippet, the deletion date,
       and "30 days" remaining.
 3. Restore it.
-- [ ] Confirm modal → "Note restored successfully" → it's back on the patient.
+- [ ] The note is restored immediately (no confirmation — restores are safe) with
+      a "Note restored successfully" toast → it's back on the patient.
 
 ### 8b. Patients (cascade)
 1. Delete a patient who HAS notes.
