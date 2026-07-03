@@ -4,6 +4,7 @@ import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText, Clock, Download } f
 import { usePatient, useSessionsForPatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { formatDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, parseAppDate, formatDisplayPhone } from '../utils/sessionFormatting';
 import { useStartSession } from '../hooks/useStartSession';
 import { exportBulkNotesToPDF, exportBulkNotesToDOCX } from '../utils/exportNotes';
@@ -18,6 +19,7 @@ const PatientDetailPage = () => {
   const startSession = useStartSession();
   const { profile } = useProfile();
   const { addToast } = useToastContext();
+  const confirm = useConfirm();
 
   const [visibleSessions, setVisibleSessions] = useState(10);
   const sessionsToShow = allSessions.slice(0, visibleSessions);
@@ -49,13 +51,19 @@ const PatientDetailPage = () => {
       confirmMessage = `Move ${patient.firstName} ${patient.lastName} and ${sessionCount} session note${sessionCount === 1 ? '' : 's'} to Recently Deleted?`;
     }
 
-    if (window.confirm(confirmMessage)) {
+    const confirmed = await confirm({
+      title: 'Delete patient?',
+      message: `${confirmMessage} You can restore them within 30 days.`,
+      confirmLabel: 'Move to Recently Deleted',
+      danger: true
+    });
+    if (confirmed) {
       try {
         await softDeletePatient(patientId);
         navigate('/');
       } catch (error) {
         console.error('Failed to delete patient:', error);
-        alert('Failed to delete patient. Please try again.');
+        // Error toast is shown by the context
       }
     }
   };
@@ -284,6 +292,13 @@ const PatientDetailPage = () => {
         onExport={handleExportAllNotes}
         isExporting={isExporting}
         title="Download All Session Notes"
+        warning={!profile?.firstName ? (
+          <span>
+            Exports will show "Provider: N/A" —{' '}
+            <Link to="/settings/profile" className="font-semibold underline">set up your profile</Link>{' '}
+            to sign your notes.
+          </span>
+        ) : null}
       />
     </div>
   );

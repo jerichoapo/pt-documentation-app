@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, Trash2, Calendar, Clock } from 'lucide-react';
 import { useDeletedPatient, usePatientData } from '../context/PatientDataContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { formatDate, formatShortDate, parseAppDate, formatDisplayPhone } from '../utils/sessionFormatting';
 
 const DeletedPatientDetailPage = () => {
@@ -9,6 +10,7 @@ const DeletedPatientDetailPage = () => {
   const navigate = useNavigate();
   const patient = useDeletedPatient(patientId);
   const { restorePatient, permanentlyDeletePatient } = usePatientData();
+  const confirm = useConfirm();
 
   const calculateAge = (dob) => {
     const birthDate = parseAppDate(dob);
@@ -32,25 +34,36 @@ const DeletedPatientDetailPage = () => {
   };
 
   const handleRestore = async () => {
-    if (window.confirm('Restore this patient?')) {
+    const confirmed = await confirm({
+      title: 'Restore patient?',
+      message: `Restore ${patient.firstName} ${patient.lastName} and any notes deleted with them?`,
+      confirmLabel: 'Restore'
+    });
+    if (confirmed) {
       try {
         await restorePatient(patientId);
         navigate('/recently-deleted');
       } catch (error) {
         console.error('Failed to restore patient:', error);
-        alert('Failed to restore patient. Please try again.');
+        // Error toast is shown by the context
       }
     }
   };
 
   const handlePermanentDelete = async () => {
-    if (window.confirm(`Permanently delete ${patient.firstName} ${patient.lastName}? This action cannot be undone and the data will be lost forever.`)) {
+    const confirmed = await confirm({
+      title: 'Delete permanently?',
+      message: `Permanently delete ${patient.firstName} ${patient.lastName}? This action cannot be undone and the data will be lost forever.`,
+      confirmLabel: 'Delete Permanently',
+      danger: true
+    });
+    if (confirmed) {
       try {
         await permanentlyDeletePatient(patientId);
         navigate('/recently-deleted');
       } catch (error) {
         console.error('Failed to permanently delete patient:', error);
-        alert('Failed to permanently delete patient. Please try again.');
+        // Error toast is shown by the context
       }
     }
   };

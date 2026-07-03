@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
-import { User } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import HomePage from './screens/HomePage';
 import PatientsListPage from './screens/PatientsListPage';
 import PatientDetailPage from './screens/PatientDetailPage';
@@ -11,6 +11,7 @@ import DeletedPatientDetailPage from './screens/DeletedPatientDetailPage';
 import DeletedSessionDetailPage from './screens/DeletedSessionDetailPage';
 import DeletedSchoolDetailPage from './screens/DeletedSchoolDetailPage';
 import ProfilePage from './screens/ProfilePage';
+import SettingsPage from './screens/SettingsPage';
 import SchoolsListPage from './screens/SchoolsListPage';
 import AddSchoolPage from './screens/AddSchoolPage';
 import EditSchoolPage from './screens/EditSchoolPage';
@@ -18,11 +19,19 @@ import SchoolProfilePage from './screens/SchoolProfilePage';
 import PatientForm from './components/PatientForm';
 import ErrorModal from './components/ErrorModal';
 import { usePatientData } from './context/PatientDataContext';
+import { useConfirm } from './context/ConfirmContext';
 
 const App = () => {
   const { error, clearError, clearAllData, exportData } = usePatientData();
-  const handleClearData = () => {
-    if (window.confirm('This will permanently delete all data. Are you sure?')) {
+  const confirm = useConfirm();
+  const handleClearData = async () => {
+    const confirmed = await confirm({
+      title: 'Delete all data?',
+      message: 'This will permanently delete all patients, notes, and schools on this device. This cannot be undone.',
+      confirmLabel: 'Delete Everything',
+      danger: true
+    });
+    if (confirmed) {
       clearAllData();
       clearError();
     }
@@ -70,11 +79,11 @@ const App = () => {
                 Schools
               </Link>
               <Link
-                to="/settings/profile"
+                to="/settings"
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium"
               >
-                <User size={20} />
-                My Profile
+                <Settings size={20} />
+                Settings
               </Link>
               <Link
                 to="/patients/new"
@@ -104,6 +113,7 @@ const App = () => {
           <Route path="/schools/new" element={<AddSchoolPage />} />
           <Route path="/schools/:schoolId" element={<SchoolProfilePage />} />
           <Route path="/schools/:schoolId/edit" element={<EditSchoolPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/profile" element={<ProfilePage />} />
         </Routes>
       </main>

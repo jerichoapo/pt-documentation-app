@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, Trash2, Calendar, Clock, MapPin, Phone, Mail, User as ContactIcon } from 'lucide-react';
 import { useDeletedSchool, usePatientData } from '../context/PatientDataContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { formatDate } from '../utils/sessionFormatting';
 
 const DeletedSchoolDetailPage = () => {
@@ -9,6 +10,7 @@ const DeletedSchoolDetailPage = () => {
   const navigate = useNavigate();
   const school = useDeletedSchool(schoolId);
   const { restoreSchool, permanentlyDeleteSchool, createGoogleMapsUrl, formatPhoneNumber } = usePatientData();
+  const confirm = useConfirm();
 
   const daysUntilPermanentDeletion = () => {
     if (!school?.permanently_deleted_at) return 0;
@@ -19,25 +21,36 @@ const DeletedSchoolDetailPage = () => {
   };
 
   const handleRestore = async () => {
-    if (window.confirm('Restore this school?')) {
+    const confirmed = await confirm({
+      title: 'Restore school?',
+      message: `Restore ${school.name}?`,
+      confirmLabel: 'Restore'
+    });
+    if (confirmed) {
       try {
         await restoreSchool(schoolId);
         navigate('/recently-deleted');
       } catch (error) {
         console.error('Failed to restore school:', error);
-        alert('Failed to restore school. Please try again.');
+        // Error toast is shown by the context
       }
     }
   };
 
   const handlePermanentDelete = async () => {
-    if (window.confirm(`Permanently delete ${school.name}? This action cannot be undone and the data will be lost forever.`)) {
+    const confirmed = await confirm({
+      title: 'Delete permanently?',
+      message: `Permanently delete ${school.name}? This action cannot be undone and the data will be lost forever.`,
+      confirmLabel: 'Delete Permanently',
+      danger: true
+    });
+    if (confirmed) {
       try {
         await permanentlyDeleteSchool(schoolId);
         navigate('/recently-deleted');
       } catch (error) {
         console.error('Failed to permanently delete school:', error);
-        alert('Failed to permanently delete school. Please try again.');
+        // Error toast is shown by the context
       }
     }
   };

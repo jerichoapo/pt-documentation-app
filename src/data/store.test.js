@@ -180,6 +180,48 @@ describe('patients and sessions', () => {
   });
 });
 
+describe('importData', () => {
+  test('imports a modern backup and persists the complete shape', () => {
+    let data = store.init();
+    data = store.createSchool(data, baseSchool);
+    data = store.addPatient(data, { ...basePatient, schoolId: data.schools[0].id });
+    data = store.addSession(data, baseSession(data.patients[0].id));
+    const backup = JSON.parse(store.exportData(data));
+
+    localStorage.clear();
+    const imported = store.importData(backup);
+
+    expect(imported.patients).toHaveLength(1);
+    expect(imported.sessions).toHaveLength(1);
+    expect(imported.schools).toHaveLength(1);
+    const stored = readStorage();
+    expect(stored.version).toBeDefined();
+    expect(stored.patients).toHaveLength(1);
+  });
+
+  test('repairs legacy backups missing schools by rebuilding from school name strings', () => {
+    const imported = store.importData({
+      patients: [{ id: 'p1', firstName: 'A', lastName: 'B', dob: '2015-01-01', school: 'Lincoln Elementary', schoolId: null }],
+      sessions: []
+    });
+
+    expect(imported.schools).toHaveLength(1);
+    expect(imported.schools[0].name).toBe('Lincoln Elementary');
+    expect(imported.patients[0].schoolId).toBe(imported.schools[0].id);
+  });
+
+  test('rejects invalid backups without touching existing data', () => {
+    let data = store.init();
+    data = store.addPatient(data, basePatient);
+
+    expect(() => store.importData({ patients: 'nope' })).toThrow('INVALID_BACKUP');
+    expect(() => store.importData(null)).toThrow('INVALID_BACKUP');
+    expect(() => store.importData([1, 2, 3])).toThrow('INVALID_BACKUP');
+
+    expect(readStorage().patients).toHaveLength(1);
+  });
+});
+
 describe('schools', () => {
   test('school with assigned patients cannot be deleted', () => {
     let data = store.init();

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Download, FileText, File } from 'lucide-react';
 
-const ExportFormatModal = ({ isOpen, onClose, onExport, isExporting, title }) => {
+const ExportFormatModal = ({ isOpen, onClose, onExport, isExporting, title, warning }) => {
   const [selectedFormat, setSelectedFormat] = useState('pdf');
 
   const handleExport = async () => {
@@ -16,6 +16,12 @@ const ExportFormatModal = ({ isOpen, onClose, onExport, isExporting, title }) =>
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">{title}</h2>
+
+          {warning && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              {warning}
+            </div>
+          )}
 
           <div className="space-y-3 mb-6">
             <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer">

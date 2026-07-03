@@ -1,16 +1,37 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronRight, HardDrive, UserCog, X } from 'lucide-react';
 import { usePatients } from '../context/PatientDataContext';
+import { useProfile } from '../context/ProfileContext';
 import PatientActionsMenu from '../components/PatientActionsMenu';
 import { useStartSession } from '../hooks/useStartSession';
 import { parseAppDate, toDateInputValue, formatShortDate } from '../utils/sessionFormatting';
+import { getAppMeta, daysSince } from '../utils/appMeta';
+
+const BACKUP_NUDGE_AFTER_DAYS = 7;
 
 const HomePage = () => {
   const navigate = useNavigate();
   const patients = usePatients();
   const startSession = useStartSession();
+  const { profile, isLoading: profileLoading } = useProfile();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [backupNudgeDismissed, setBackupNudgeDismissed] = useState(
+    () => sessionStorage.getItem('ptAppBackupNudgeDismissed') === '1'
+  );
+
+  const lastBackupAt = getAppMeta().lastBackupAt || null;
+  const backupAge = daysSince(lastBackupAt);
+  const showBackupNudge =
+    !backupNudgeDismissed &&
+    patients.length > 0 &&
+    (backupAge === null || backupAge >= BACKUP_NUDGE_AFTER_DAYS);
+  const showProfileNudge = !profileLoading && !profile?.firstName;
+
+  const dismissBackupNudge = () => {
+    sessionStorage.setItem('ptAppBackupNudgeDismissed', '1');
+    setBackupNudgeDismissed(true);
+  };
 
   const formatDate = (date) => {
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -35,6 +56,41 @@ const HomePage = () => {
 
   return (
     <div className="max-w-5xl mx-auto">
+      {showBackupNudge && (
+        <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
+            <HardDrive size={18} className="flex-shrink-0" />
+            <span>
+              {lastBackupAt
+                ? `Last backup: ${backupAge} day${backupAge !== 1 ? 's' : ''} ago.`
+                : 'Your data has never been backed up.'}{' '}
+              <Link to="/settings" className="font-semibold underline hover:text-amber-900">
+                Download a backup
+              </Link>
+            </span>
+          </div>
+          <button
+            onClick={dismissBackupNudge}
+            className="text-amber-600 hover:text-amber-800 flex-shrink-0"
+            aria-label="Dismiss backup reminder"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {showProfileNudge && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-sm text-blue-800">
+          <UserCog size={18} className="flex-shrink-0" />
+          <span>
+            Add your provider info so exported notes are signed.{' '}
+            <Link to="/settings/profile" className="font-semibold underline hover:text-blue-900">
+              Set up profile
+            </Link>
+          </span>
+        </div>
+      )}
+
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Select Patient & Session</h2>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">

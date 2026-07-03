@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, RotateCcw, Trash2, Calendar, User, FileText, Building2 } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { formatDate } from '../utils/sessionFormatting';
 import RestoreNoteDecisionModal from '../components/RestoreNoteDecisionModal';
 
@@ -20,6 +21,7 @@ const RecentlyDeletedPage = () => {
     getDeletedPatientById
   } = usePatientData();
   const { addToast } = useToastContext();
+  const confirm = useConfirm();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('patients');
@@ -151,7 +153,13 @@ const RecentlyDeletedPage = () => {
         ? currentItems.find(s => s.id === id)?.name
         : 'this note';
 
-    if (window.confirm(`Permanently delete ${itemName}? This action cannot be undone and the data will be lost forever.`)) {
+    const confirmed = await confirm({
+      title: 'Delete permanently?',
+      message: `Permanently delete ${itemName}? This action cannot be undone and the data will be lost forever.`,
+      confirmLabel: 'Delete Permanently',
+      danger: true
+    });
+    if (confirmed) {
       try {
         if (activeTab === 'patients') {
           await permanentlyDeletePatient(id);
@@ -181,7 +189,12 @@ const RecentlyDeletedPage = () => {
       }
     }
 
-    if (window.confirm(confirmMessage)) {
+    const confirmed = await confirm({
+      title: 'Restore items?',
+      message: confirmMessage,
+      confirmLabel: `Restore (${count})`
+    });
+    if (confirmed) {
       for (const id of selectedItems) {
         try {
           if (activeTab === 'patients') {
@@ -201,7 +214,13 @@ const RecentlyDeletedPage = () => {
 
   const handleBulkDelete = async () => {
     const count = selectedItems.size;
-    if (window.confirm(`Permanently delete ${count} ${activeTab}? This action cannot be undone and the data will be lost forever.`)) {
+    const confirmed = await confirm({
+      title: 'Delete permanently?',
+      message: `Permanently delete ${count} ${activeTab}? This action cannot be undone and the data will be lost forever.`,
+      confirmLabel: `Delete ${count} Permanently`,
+      danger: true
+    });
+    if (confirmed) {
       for (const id of selectedItems) {
         try {
           if (activeTab === 'patients') {
@@ -221,7 +240,13 @@ const RecentlyDeletedPage = () => {
 
   const handleEmptyTrash = async () => {
     const count = currentItems.length;
-    if (window.confirm(`Permanently delete all ${count} ${activeTab}? This action cannot be undone and the data will be lost forever.`)) {
+    const confirmed = await confirm({
+      title: 'Empty trash?',
+      message: `Permanently delete all ${count} ${activeTab}? This action cannot be undone and the data will be lost forever.`,
+      confirmLabel: 'Empty Trash',
+      danger: true
+    });
+    if (confirmed) {
       for (const item of currentItems) {
         try {
           if (activeTab === 'patients') {

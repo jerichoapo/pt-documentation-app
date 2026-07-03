@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, Trash2, Calendar, Clock, User } from 'lucide-react';
 import { useDeletedSession, usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
 import RestoreNoteDecisionModal from '../components/RestoreNoteDecisionModal';
 
@@ -12,6 +13,7 @@ const DeletedSessionDetailPage = () => {
   const session = useDeletedSession(sessionId);
   const { getDeletedPatientById, restoreSession, restorePatient, permanentlyDeleteSession, getRecentlyDeletedSessions } = usePatientData();
   const { addToast } = useToastContext();
+  const confirm = useConfirm();
 
   // Modal state
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
@@ -32,13 +34,18 @@ const DeletedSessionDetailPage = () => {
       setRestoreModalOpen(true);
     } else {
       // Patient not deleted, restore normally
-      if (window.confirm('Restore this note?')) {
+      const confirmed = await confirm({
+        title: 'Restore note?',
+        message: 'Restore this note to the patient record?',
+        confirmLabel: 'Restore'
+      });
+      if (confirmed) {
         try {
           await restoreSession(sessionId);
           navigate('/recently-deleted');
         } catch (error) {
           console.error('Failed to restore session:', error);
-          alert('Failed to restore note. Please try again.');
+          // Error toast is shown by the context
         }
       }
     }
@@ -63,7 +70,7 @@ const DeletedSessionDetailPage = () => {
       }
     } catch (error) {
       console.error('Failed to restore:', error);
-      alert('Failed to restore. Please try again.');
+      // Error toast is shown by the context
     } finally {
       setRestoreModalOpen(false);
     }
@@ -74,13 +81,19 @@ const DeletedSessionDetailPage = () => {
   };
 
   const handlePermanentDelete = async () => {
-    if (window.confirm('Permanently delete this note? This action cannot be undone and the data will be lost forever.')) {
+    const confirmed = await confirm({
+      title: 'Delete permanently?',
+      message: 'Permanently delete this note? This action cannot be undone and the data will be lost forever.',
+      confirmLabel: 'Delete Permanently',
+      danger: true
+    });
+    if (confirmed) {
       try {
         await permanentlyDeleteSession(sessionId);
         navigate('/recently-deleted');
       } catch (error) {
         console.error('Failed to permanently delete session:', error);
-        alert('Failed to permanently delete note. Please try again.');
+        // Error toast is shown by the context
       }
     }
   };

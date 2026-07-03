@@ -3,7 +3,35 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, FileText, Home } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { parseAppDate, toDateInputValue } from '../utils/sessionFormatting';
+
+const DRAFT_KEY = 'ptAppSessionDraft';
+
+const readDraft = () => {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFT_KEY));
+  } catch (error) {
+    return null;
+  }
+};
+
+const clearDraft = () => {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch (error) {
+    // best-effort
+  }
+};
+
+const soapHasContent = (soapNote) =>
+  Boolean(
+    soapNote.subjective.trim() ||
+    soapNote.objectiveNotes.trim() ||
+    soapNote.assessment.trim() ||
+    soapNote.plan.trim() ||
+    Object.values(soapNote.objectiveCategories).some(Boolean)
+  );
 
 const SessionWizard = () => {
   const { patientId, section } = useParams();
@@ -11,6 +39,7 @@ const SessionWizard = () => {
   const location = useLocation();
   const { getPatientById, addSession } = usePatientData();
   const { addToast } = useToastContext();
+  const confirm = useConfirm();
 
   // Extract referrer and pre-selected date from query parameters
   const searchParams = new URLSearchParams(location.search);
@@ -74,6 +103,98 @@ const SessionWizard = () => {
       setSessionEndTime(timeDefaults.endTime);
     }
   }, [currentStep]);
+
+  // ---- Draft autosave ----
+  // Offer to resume an unsaved draft for this patient; autosave only begins
+  // after that decision so the prompt's draft can't be overwritten.
+  const draftPromptShown = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
+
+  useEffect(() => {
+    if (draftPromptShown.current) return;
+    draftPromptShown.current = true;
+
+    const draft = readDraft();
+    if (!draft || draft.patientId !== patientId || !draft.state) {
+      setDraftReady(true);
+      return;
+    }
+
+    (async () => {
+      const savedAt = new Date(draft.savedAt);
+      const when = isNaN(savedAt.getTime())
+        ? 'earlier'
+        : `${savedAt.toLocaleDateString()} at ${savedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+
+      const resume = await confirm({
+        title: 'Resume unsaved note?',
+        message: `You have an unsaved note for this patient from ${when}. Resume where you left off?`,
+        confirmLabel: 'Resume',
+        cancelLabel: 'Discard'
+      });
+
+      if (resume) {
+        try {
+          const s = draft.state;
+          if (s.soapNote && s.soapNote.objectiveCategories) setSoapNote(s.soapNote);
+          if (s.selectedDate) {
+            const restored = parseAppDate(s.selectedDate);
+            if (!isNaN(restored.getTime())) setSelectedDate(restored);
+          }
+          if (s.sessionStartTime) setSessionStartTime(s.sessionStartTime);
+          if (s.sessionEndTime) setSessionEndTime(s.sessionEndTime);
+          if (typeof s.therExMinutes === 'number') setTherExMinutes(s.therExMinutes);
+          if (typeof s.therActMinutes === 'number') setTherActMinutes(s.therActMinutes);
+          if (s.timesInitialized) timesInitialized.current = true;
+          if (typeof s.currentStep === 'number' && s.currentStep >= 1 && s.currentStep <= 5) {
+            setCurrentStep(s.currentStep);
+          }
+        } catch (error) {
+          console.error('Failed to restore draft:', error);
+        }
+      } else {
+        clearDraft();
+      }
+      setDraftReady(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady || currentStep >= 6) return;
+
+    const timer = setTimeout(() => {
+      try {
+        if (soapHasContent(soapNote)) {
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            patientId,
+            savedAt: new Date().toISOString(),
+            state: {
+              currentStep,
+              selectedDate: toDateInputValue(selectedDate),
+              sessionStartTime,
+              sessionEndTime,
+              therExMinutes,
+              therActMinutes,
+              soapNote,
+              timesInitialized: timesInitialized.current
+            }
+          }));
+        } else {
+          // Nothing worth keeping - drop our own draft so an emptied note
+          // doesn't resurrect later
+          const existing = readDraft();
+          if (existing && existing.patientId === patientId) {
+            clearDraft();
+          }
+        }
+      } catch (error) {
+        // Draft persistence is best-effort; never interrupt documentation
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [draftReady, soapNote, selectedDate, sessionStartTime, sessionEndTime, therExMinutes, therActMinutes, currentStep, patientId]);
 
   const steps = [
     { name: 'Calendar', icon: Calendar },
@@ -233,6 +354,7 @@ const SessionWizard = () => {
         therActMinutes
       });
 
+      clearDraft();
       handleNextStep();
     } catch (error) {
       console.error('Failed to save session:', error);

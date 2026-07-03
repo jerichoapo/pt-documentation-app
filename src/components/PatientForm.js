@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
+import { useToastContext } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { parseAppDate } from '../utils/sessionFormatting';
 
 const PatientForm = () => {
@@ -15,6 +17,8 @@ const PatientForm = () => {
     getSchoolSuggestions,
     getSchoolById
   } = usePatientData();
+  const { addToast } = useToastContext();
+  const confirm = useConfirm();
 
   const isEditMode = !!patientId;
   const existingPatient = isEditMode ? getPatientById(patientId) : null;
@@ -216,9 +220,11 @@ const PatientForm = () => {
     } catch (error) {
       if (error.message.startsWith('DUPLICATE_PATIENT:')) {
         // Show warning dialog
-        const shouldContinue = window.confirm(
-          'A patient with this name and birthdate already exists. Continue anyway?'
-        );
+        const shouldContinue = await confirm({
+          title: 'Possible duplicate patient',
+          message: 'A patient with this name and birthdate already exists. Continue anyway?',
+          confirmLabel: 'Add Anyway'
+        });
         if (shouldContinue) {
           // Try again with skip duplicate check
           await addPatient(processedData, { skipDuplicateCheck: true });
@@ -267,7 +273,7 @@ const PatientForm = () => {
       }
     } catch (error) {
       console.error('Failed to save patient:', error);
-      alert('Failed to save patient. Please try again.');
+      addToast('Failed to save patient. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }

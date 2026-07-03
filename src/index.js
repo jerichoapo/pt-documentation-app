@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { PatientDataProvider } from './context/PatientDataContext';
 import { ProfileProvider } from './context/ProfileContext';
 import './index.css';
@@ -13,11 +14,13 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <ToastProvider>
-        <PatientDataProvider>
-          <ProfileProvider>
-            <App />
-          </ProfileProvider>
-        </PatientDataProvider>
+        <ConfirmProvider>
+          <PatientDataProvider>
+            <ProfileProvider>
+              <App />
+            </ProfileProvider>
+          </PatientDataProvider>
+        </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>
   </React.StrictMode>

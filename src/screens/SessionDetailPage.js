@@ -4,6 +4,7 @@ import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2, Download } from 'lu
 import { useSession, usePatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
 import { exportSingleNoteToPDF, exportSingleNoteToDOCX } from '../utils/exportNotes';
 import ExportFormatModal from '../components/ExportFormatModal';
@@ -16,6 +17,7 @@ const SessionDetailPage = () => {
   const { updateSession, softDeleteSession } = usePatientData();
   const { profile } = useProfile();
   const { addToast } = useToastContext();
+  const confirm = useConfirm();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedSession, setEditedSession] = useState(null);
@@ -93,7 +95,13 @@ const SessionDetailPage = () => {
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Move this note to Recently Deleted?')) {
+    const confirmed = await confirm({
+      title: 'Delete note?',
+      message: 'Move this note to Recently Deleted? You can restore it within 30 days.',
+      confirmLabel: 'Move to Recently Deleted',
+      danger: true
+    });
+    if (confirmed) {
       try {
         await softDeleteSession(sessionId);
         navigate(`/patients/${patient.id}`);
@@ -447,6 +455,13 @@ const SessionDetailPage = () => {
         onExport={handleExportNote}
         isExporting={isExporting}
         title="Download Session Note"
+        warning={!profile?.firstName ? (
+          <span>
+            Exports will show "Provider: N/A" —{' '}
+            <Link to="/settings/profile" className="font-semibold underline">set up your profile</Link>{' '}
+            to sign your notes.
+          </span>
+        ) : null}
       />
     </div>
   );

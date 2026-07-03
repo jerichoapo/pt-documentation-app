@@ -1107,6 +1107,31 @@ export const store = {
     }, null, 2);
   },
 
+  // Replace all stored data with the contents of a backup file. Accepts older
+  // backups that lack schools/version; rebuilds school links the same way
+  // loadFromStorage repair does. Throws INVALID_BACKUP for anything else.
+  importData: (raw) => {
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.patients) || !Array.isArray(raw.sessions)) {
+      throw new Error('INVALID_BACKUP');
+    }
+
+    let data = {
+      version: STORAGE_VERSION,
+      patients: raw.patients,
+      sessions: raw.sessions,
+      schools: Array.isArray(raw.schools) ? raw.schools : []
+    };
+
+    // Idempotent: keeps existing schoolId links, creates schools for legacy
+    // name strings, and recomputes patient counts.
+    data = migratePatientsToSchoolIds(data);
+    data.version = STORAGE_VERSION;
+    data = store.purgeExpiredItems(data);
+
+    saveToStorage(data);
+    return data;
+  },
+
   // School utility functions
   formatPhoneNumber: (phone) => formatPhoneNumber(phone),
 

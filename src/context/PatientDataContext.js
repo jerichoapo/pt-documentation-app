@@ -631,6 +631,36 @@ export const PatientDataProvider = ({ children }) => {
     return store.exportData(getFullData());
   };
 
+  const importData = async (raw) => {
+    try {
+      const newData = store.importData(raw);
+      dataRef.current = {
+        patients: newData.patients,
+        sessions: newData.sessions,
+        schools: newData.schools
+      };
+      dispatch({
+        type: ACTIONS.LOAD_DATA,
+        payload: {
+          patients: newData.patients,
+          sessions: newData.sessions,
+          schools: newData.schools
+        }
+      });
+      addToast('Backup imported successfully', 'success');
+      return newData;
+    } catch (error) {
+      if (error.message === 'INVALID_BACKUP') {
+        addToast('That file is not a valid PT App backup.', 'error');
+      } else if (error.message === 'STORAGE_QUOTA_EXCEEDED') {
+        addToast('Storage limit reached. The backup is too large to import.', 'error');
+      } else {
+        addToast('Failed to import backup', 'error');
+      }
+      throw error;
+    }
+  };
+
   // Context value
   const value = {
     // State
@@ -695,7 +725,8 @@ export const PatientDataProvider = ({ children }) => {
     permanentlyDeleteSchool,
     clearError,
     clearAllData,
-    exportData
+    exportData,
+    importData
   };
 
   return (

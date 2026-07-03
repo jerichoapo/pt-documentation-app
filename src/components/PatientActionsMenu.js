@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoreVertical } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const PatientActionsMenu = ({ patientId, patientName }) => {
   const navigate = useNavigate();
   const { deletePatient, getSessionsForPatient } = usePatientData();
+  const confirm = useConfirm();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -37,6 +39,8 @@ const PatientActionsMenu = ({ patientId, patientName }) => {
   };
 
   const handleDeletePatient = async () => {
+    setIsOpen(false);
+
     const sessions = getSessionsForPatient(patientId);
     const sessionCount = sessions.length;
 
@@ -45,17 +49,21 @@ const PatientActionsMenu = ({ patientId, patientName }) => {
       confirmMessage = `Move ${patientName} and ${sessionCount} session note${sessionCount === 1 ? '' : 's'} to Recently Deleted?`;
     }
 
-    if (window.confirm(confirmMessage)) {
+    const confirmed = await confirm({
+      title: 'Delete patient?',
+      message: `${confirmMessage} You can restore them within 30 days.`,
+      confirmLabel: 'Move to Recently Deleted',
+      danger: true
+    });
+    if (confirmed) {
       try {
         await deletePatient(patientId);
         navigate('/');
       } catch (error) {
         console.error('Failed to delete patient:', error);
-        alert('Failed to delete patient. Please try again.');
+        // Error toast is shown by the context
       }
     }
-
-    setIsOpen(false);
   };
 
   return (
