@@ -22,7 +22,8 @@ PDF/DOCX for the district/clinic.
 - `src/screens/*` — one file per route. `src/App.js` has the route table.
 - `src/utils/sessionFormatting.js` — shared date/time/phone formatting.
 - `src/utils/exportNotes.js` — PDF (pdfmake) and DOCX (docx) note exports.
-- Storage keys: `ptAppData` (schema v1.3), `pt-app-profile` (provider info).
+- Storage keys: `ptAppData` (schema v1.4), `pt-app-profile` (provider info),
+  `pt-app-meta` (backup timestamps), `ptAppSessionDraft` (wizard draft).
 
 ## Invariants — do not break these (each guards a fixed data-loss bug)
 
@@ -53,11 +54,16 @@ PDF/DOCX for the district/clinic.
 
 ## Current state & next work
 
-Bug-fix pass completed and pushed (commit `87b30bd`, 2026-07-02): storage corruption,
-white-screen deletes, premature "saved" screen, timezone bugs, school linkage, bulk
-ops, etc. `npm test` = 22 passing tests; CI build clean.
+Bug-fix pass (commit `87b30bd`) plus all four roadmap phases are built:
+backup/restore + drafts + ConfirmModal (Phase 1), copy-forward + last-note peek
+(Phase 2), caseload search/grouping + nav + tablet pass (Phase 3), and schema
+1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 37 passing
+tests; CI build clean.
 
-**Planned feature work lives in [docs/ROADMAP.md](docs/ROADMAP.md)** — a 4-phase UX
-roadmap (backup/drafts → copy-forward → caseload nav → goals/amendments). Read it
-before starting any feature; each phase has specs and acceptance criteria.
+**[docs/ROADMAP.md](docs/ROADMAP.md)** holds the per-feature specs and
+acceptance criteria for everything above — the reference when modifying these
+features. **[docs/QA-FLOW-AUDIT.md](docs/QA-FLOW-AUDIT.md)** is the
+user-perspective walkthrough of every flow with expected behaviors — use it to
+regression-test after changes and update it when flows change. Additions to session editing must preserve the amendment trail
+(`store.updateSession` snapshots previous content when clinical fields change).
 HIPAA/auth/encryption is explicitly deferred by the owner — do not add it unprompted.
