@@ -4,7 +4,7 @@ import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText, Clock, Download } f
 import { usePatient, useSessionsForPatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
-import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
+import { formatDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, parseAppDate, formatDisplayPhone } from '../utils/sessionFormatting';
 import { useStartSession } from '../hooks/useStartSession';
 import { exportBulkNotesToPDF, exportBulkNotesToDOCX } from '../utils/exportNotes';
 import ExportFormatModal from '../components/ExportFormatModal';
@@ -25,7 +25,7 @@ const PatientDetailPage = () => {
   const [isExporting, setIsExporting] = useState(false);
 
   const calculateAge = (dob) => {
-    const birthDate = new Date(dob);
+    const birthDate = parseAppDate(dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -162,11 +162,11 @@ const PatientDetailPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-              <p className="text-lg text-gray-900">{new Date(patient.dob).toLocaleDateString()}</p>
+              <p className="text-lg text-gray-900">{formatShortDate(patient.dob)}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
-              <p className="text-lg text-gray-900">{patient.guardianPhone || 'Not specified'}</p>
+              <p className="text-lg text-gray-900">{patient.guardianPhone ? formatDisplayPhone(patient.guardianPhone) : 'Not specified'}</p>
             </div>
           </div>
 
@@ -239,7 +239,7 @@ const PatientDetailPage = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <Calendar className="text-blue-600" size={16} />
                       <span className="text-sm font-medium text-gray-900">
-                        {formatDate(new Date(session.sessionDate))}
+                        {formatDate(session.sessionDate)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-700">

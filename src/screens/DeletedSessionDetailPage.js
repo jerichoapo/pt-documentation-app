@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, Trash2, Calendar, Clock, User } from 'lucide-react';
 import { useDeletedSession, usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
-import { formatDate, formatTime, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
+import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
 import RestoreNoteDecisionModal from '../components/RestoreNoteDecisionModal';
 
 const DeletedSessionDetailPage = () => {
@@ -122,7 +122,7 @@ const DeletedSessionDetailPage = () => {
         <div className="mt-2 text-sm text-red-700">
           <div className="flex items-center gap-2">
             <Calendar size={16} />
-            Deleted on {formatDate(new Date(session.deleted_at))}
+            Deleted on {formatDate(session.deleted_at)}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <Clock size={16} />
@@ -152,7 +152,7 @@ const DeletedSessionDetailPage = () => {
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <Calendar size={16} />
-              <span>{formatDate(new Date(session.sessionDate))}</span>
+              <span>{formatDate(session.sessionDate)}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock size={16} />

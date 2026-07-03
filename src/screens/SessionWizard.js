@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar, ChevronRight, ChevronLeft, Check, Edit2, Save, User, Clock, FileText, Home } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
+import { parseAppDate, toDateInputValue } from '../utils/sessionFormatting';
 
 const SessionWizard = () => {
   const { patientId, section } = useParams();
@@ -11,14 +12,22 @@ const SessionWizard = () => {
   const { getPatientById, addSession } = usePatientData();
   const { addToast } = useToastContext();
 
-  // Extract referrer from query parameters, default to 'profile'
+  // Extract referrer and pre-selected date from query parameters
   const searchParams = new URLSearchParams(location.search);
   const referrer = searchParams.get('referrer') || 'profile';
+  const dateParam = searchParams.get('date');
 
   const [currentStep, setCurrentStep] = useState(section === 'subjective' ? 1 : 0);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (dateParam) {
+      const parsed = parseAppDate(dateParam);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
   const [sessionStartTime, setSessionStartTime] = useState('14:00');
   const [sessionEndTime, setSessionEndTime] = useState('15:30');
+  const [isSaving, setIsSaving] = useState(false);
   const [therExMinutes, setTherExMinutes] = useState(0);
   const [therActMinutes, setTherActMinutes] = useState(0);
   const [soapNote, setSoapNote] = useState({
@@ -54,9 +63,12 @@ const SessionWizard = () => {
     };
   };
 
-  // Auto-populate time fields when entering the review step
+  // Auto-populate time fields the first time the review step is entered,
+  // without clobbering times the user has already adjusted
+  const timesInitialized = useRef(false);
   useEffect(() => {
-    if (currentStep === 5) { // Review step
+    if (currentStep === 5 && !timesInitialized.current) { // Review step
+      timesInitialized.current = true;
       const timeDefaults = getCurrentTimeDefaults();
       setSessionStartTime(timeDefaults.startTime);
       setSessionEndTime(timeDefaults.endTime);
@@ -190,11 +202,26 @@ const SessionWizard = () => {
     }
   };
 
-  const handleSaveAndReturn = async () => {
+  const handleReturnToPatient = () => {
+    navigate(`/patients/${patientId}`);
+  };
+
+  const handleValidatedSave = async () => {
+    const incompleteSections = getIncompleteSections();
+
+    if (incompleteSections.length > 0) {
+      const message = `Cannot save. Missing required sections: ${incompleteSections.join(', ')}`;
+      addToast(message, 'warning');
+      return;
+    }
+
+    if (isSaving) return;
+    setIsSaving(true);
     try {
+      // Save the session BEFORE showing the completion screen
       await addSession({
         patientId,
-        sessionDate: selectedDate.toISOString(),
+        sessionDate: toDateInputValue(selectedDate),
         startTime: sessionStartTime,
         endTime: sessionEndTime,
         subjective: soapNote.subjective,
@@ -206,28 +233,13 @@ const SessionWizard = () => {
         therActMinutes
       });
 
-      // Show success toast (will implement later)
-      console.log('Session saved successfully');
-
-      // Redirect to patient detail page
-      navigate(`/patients/${patientId}`);
+      handleNextStep();
     } catch (error) {
       console.error('Failed to save session:', error);
-      // Error handling will be implemented later
+      // Stay on the review step; the context already shows an error toast
+    } finally {
+      setIsSaving(false);
     }
-  };
-
-  const handleValidatedSave = () => {
-    const incompleteSections = getIncompleteSections();
-
-    if (incompleteSections.length > 0) {
-      const message = `Cannot save. Missing required sections: ${incompleteSections.join(', ')}`;
-      addToast(message, 'warning');
-      return;
-    }
-
-    // All sections are complete, proceed to next step
-    handleNextStep();
   };
 
   const renderStepIndicator = () => (
@@ -293,8 +305,8 @@ const SessionWizard = () => {
           <label className="block text-sm font-medium text-gray-700 mb-2">Session Date</label>
           <input
             type="date"
-            value={selectedDate.toISOString().split('T')[0]}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            value={toDateInputValue(selectedDate)}
+            onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -353,7 +365,7 @@ const SessionWizard = () => {
           </label>
           <textarea
             value={soapNote.subjective}
-            onChange={(e) => setSoapNote({...soapNote, subjective: e.target.value})}
+            onChange={(e) => { const value = e.target.value; setSoapNote(prev => ({ ...prev, subjective: value })); }}
             placeholder="Example: Child reports feeling tired today. Parent notes that child has been more active at home this week. Child expressed excitement about playing on the swings..."
             className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
@@ -422,7 +434,7 @@ const SessionWizard = () => {
           </label>
           <textarea
             value={soapNote.objectiveNotes}
-            onChange={(e) => setSoapNote({...soapNote, objectiveNotes: e.target.value})}
+            onChange={(e) => { const value = e.target.value; setSoapNote(prev => ({ ...prev, objectiveNotes: value })); }}
             placeholder="Example: Child demonstrated improved standing balance, maintaining position for 45 seconds (up from 30 seconds last session). Gait pattern shows decreased toe-walking. Successfully transferred from wheelchair to mat with minimal assistance..."
             className="w-full h-48 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
@@ -467,7 +479,7 @@ const SessionWizard = () => {
           </label>
           <textarea
             value={soapNote.assessment}
-            onChange={(e) => setSoapNote({...soapNote, assessment: e.target.value})}
+            onChange={(e) => { const value = e.target.value; setSoapNote(prev => ({ ...prev, assessment: value })); }}
             placeholder="Example: Child demonstrates continued progress in balance and coordination skills. Shows 50% improvement in standing balance duration over past 3 sessions. Gait pattern improvements indicate positive response to therapeutic interventions. Child remains motivated and engaged in activities..."
             className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
@@ -512,7 +524,7 @@ const SessionWizard = () => {
           </label>
           <textarea
             value={soapNote.plan}
-            onChange={(e) => setSoapNote({...soapNote, plan: e.target.value})}
+            onChange={(e) => { const value = e.target.value; setSoapNote(prev => ({ ...prev, plan: value })); }}
             placeholder="Example: Continue current treatment protocol with increased emphasis on dynamic balance activities. Next session will focus on: 1) Standing balance on unstable surfaces, 2) Tandem walking exercises, 3) Ball activities for coordination. Schedule follow-up in 1 week. Recommend parent practice balance activities at home for 10 minutes daily..."
             className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
@@ -560,8 +572,8 @@ const SessionWizard = () => {
             <div className="flex gap-4">
               <input
                 type="date"
-                value={selectedDate.toISOString().split('T')[0]}
-                onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                value={toDateInputValue(selectedDate)}
+                onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <div className="flex gap-2">
@@ -661,10 +673,11 @@ const SessionWizard = () => {
         </button>
         <button
           onClick={handleValidatedSave}
-          className="px-8 py-3 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 flex items-center gap-2"
+          disabled={isSaving}
+          className="px-8 py-3 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save size={20} />
-          Save & Continue
+          {isSaving ? 'Saving...' : 'Save & Continue'}
         </button>
       </div>
     </div>
@@ -710,7 +723,7 @@ const SessionWizard = () => {
         </div>
 
         <button
-          onClick={handleSaveAndReturn}
+          onClick={handleReturnToPatient}
           className="px-10 py-4 rounded-lg font-semibold text-lg bg-blue-600 text-white hover:bg-blue-700 shadow-lg flex items-center gap-3 mx-auto"
         >
           <Home size={24} />

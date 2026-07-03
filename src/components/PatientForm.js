@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
+import { parseAppDate } from '../utils/sessionFormatting';
 
 const PatientForm = () => {
   const { patientId } = useParams();
@@ -35,21 +36,12 @@ const PatientForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [schoolSuggestions, setSchoolSuggestions] = useState([]);
   const [showSchoolDropdown, setShowSchoolDropdown] = useState(false);
-  const [selectedSchoolId, setSelectedSchoolId] = useState(null);
   const [schoolInputValue, setSchoolInputValue] = useState('');
 
-  // Sync school input value and selected school ID with formData
+  // Keep the school input in sync with formData
   useEffect(() => {
     setSchoolInputValue(formData.school || '');
-    // Find the school ID if we have a school name
-    if (formData.school && formData.school.trim()) {
-      const schools = getSchoolSuggestions(formData.school.trim(), 1);
-      const matchingSchool = schools.find(s => s.name.toLowerCase() === formData.school.toLowerCase());
-      setSelectedSchoolId(matchingSchool ? matchingSchool.id : null);
-    } else {
-      setSelectedSchoolId(null);
-    }
-  }, [formData.school, getSchoolSuggestions]);
+  }, [formData.school]);
 
   // Initialize form with existing patient data in edit mode
   useEffect(() => {
@@ -68,36 +60,49 @@ const PatientForm = () => {
       setFormData({
         firstName: existingPatient.firstName || '',
         lastName: existingPatient.lastName || '',
-        dob: existingPatient.dob ? new Date(existingPatient.dob).toISOString().split('T')[0] : '',
+        dob: existingPatient.dob || '',
         diagnosis: existingPatient.diagnosis || '',
         guardianName: existingPatient.guardianName || '',
-        guardianPhone: existingPatient.guardianPhone || '',
+        guardianPhone: existingPatient.guardianPhone ? formatPhoneNumber(existingPatient.guardianPhone) : '',
         notes: existingPatient.notes || '',
         grade: existingPatient.grade || '',
         school: schoolName,
         schoolId: schoolId
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingPatient, getSchoolById]);
 
-  // Handle return from school creation
+  // Handle return from school creation (or a cancelled school detour):
+  // restore everything the user had typed, then apply the new school if any
   useEffect(() => {
     const newSchool = location.state?.newSchool;
-    if (newSchool) {
-      // Auto-populate the newly created school
-      setSchoolInputValue(newSchool.name);
-      setFormData(prev => ({
-        ...prev,
-        school: newSchool.name,
-        schoolId: newSchool.id
-      }));
-      setSelectedSchoolId(newSchool.id);
+    const savedFormData = location.state?.returnContext?.formData;
+
+    if (newSchool || savedFormData) {
+      if (savedFormData) {
+        setFormData(prev => ({
+          ...prev,
+          ...savedFormData,
+          ...(newSchool ? { school: newSchool.name, schoolId: newSchool.id } : {})
+        }));
+      } else if (newSchool) {
+        setFormData(prev => ({
+          ...prev,
+          school: newSchool.name,
+          schoolId: newSchool.id
+        }));
+      }
+
+      if (newSchool) {
+        setSchoolInputValue(newSchool.name);
+      }
       setShowSchoolDropdown(false);
 
       // Clear the state to prevent re-triggering
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, location.pathname]);
 
   const calculateAge = (dob) => {
     if (!dob) return '';
@@ -116,6 +121,16 @@ const PatientForm = () => {
   const normalizePhoneNumber = (phone) => {
     // Remove all non-digit characters
     return phone.replace(/\D/g, '');
+  };
+
+  // Resolve the typed school name to a school id directly from data instead of
+  // relying on effect-synced state, which can lag a render behind
+  const resolveSchoolId = () => {
+    const name = formData.school?.trim();
+    if (!name) return null;
+    const schools = getSchoolSuggestions(name, 5);
+    const match = schools.find(s => s.name.toLowerCase() === name.toLowerCase());
+    return match ? match.id : null;
   };
 
   const formatPhoneNumber = (phone) => {
@@ -155,11 +170,13 @@ const PatientForm = () => {
     if (!formData.dob) {
       newErrors.dob = 'Date of birth is required';
     } else {
-      const birthDate = new Date(formData.dob);
+      const birthDate = parseAppDate(formData.dob);
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
 
-      if (birthDate >= today) {
+      if (isNaN(birthDate.getTime())) {
+        newErrors.dob = 'Please enter a valid date of birth';
+      } else if (birthDate > today) {
         newErrors.dob = 'Date of birth cannot be in the future';
       }
 
@@ -182,7 +199,7 @@ const PatientForm = () => {
 
     // Validate school selection - must be empty or from existing schools
     if (formData.school && formData.school.trim()) {
-      if (!selectedSchoolId) {
+      if (!resolveSchoolId()) {
         newErrors.school = 'Please select a school from the dropdown or leave blank';
       }
     }
@@ -191,22 +208,10 @@ const PatientForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const checkForDuplicates = async () => {
-    if (isEditMode) return true; // Skip duplicate check in edit mode
-
+  const createPatientWithDuplicateCheck = async (processedData) => {
     try {
       // Try to add the patient - this will throw if duplicate found
-      await addPatient({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        dob: formData.dob,
-        diagnosis: formData.diagnosis,
-        guardianName: formData.guardianName,
-        guardianPhone: formData.guardianPhone,
-        notes: formData.notes,
-        grade: formData.grade,
-        school: formData.school
-      });
+      await addPatient(processedData);
       return true;
     } catch (error) {
       if (error.message.startsWith('DUPLICATE_PATIENT:')) {
@@ -216,17 +221,7 @@ const PatientForm = () => {
         );
         if (shouldContinue) {
           // Try again with skip duplicate check
-          await addPatient({
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            dob: formData.dob,
-            diagnosis: formData.diagnosis,
-            guardianName: formData.guardianName,
-            guardianPhone: formData.guardianPhone,
-            notes: formData.notes,
-            grade: formData.grade,
-            school: formData.school
-          }, { skipDuplicateCheck: true });
+          await addPatient(processedData, { skipDuplicateCheck: true });
           return true;
         }
         return false; // User chose not to continue
@@ -256,15 +251,16 @@ const PatientForm = () => {
         notes: formData.notes.trim(),
         grade: formData.grade,
         school: formData.school.trim(),
-        schoolId: formData.schoolId
+        // Derived directly from the typed name; formData.schoolId can be
+        // stale when the user typed an exact school name without clicking
+        schoolId: resolveSchoolId()
       };
 
       if (isEditMode) {
         await updatePatient(patientId, processedData);
         navigate(`/patients/${patientId}`);
       } else {
-        // For new patients, checkForDuplicates handles the duplicate detection and patient creation
-        const success = await checkForDuplicates();
+        const success = await createPatientWithDuplicateCheck(processedData);
         if (success) {
           navigate('/patients');
         }
@@ -280,7 +276,6 @@ const PatientForm = () => {
   const handleSchoolInputChange = (value) => {
     setSchoolInputValue(value);
     setFormData(prev => ({ ...prev, school: value, schoolId: null }));
-    setSelectedSchoolId(null);
 
     // Get suggestions if input is long enough
     if (value.trim().length >= 1) {
@@ -308,7 +303,6 @@ const PatientForm = () => {
   const handleSchoolSuggestionSelect = (suggestion) => {
     setSchoolInputValue(suggestion.name);
     setFormData(prev => ({ ...prev, school: suggestion.name, schoolId: suggestion.id }));
-    setSelectedSchoolId(suggestion.id);
     setShowSchoolDropdown(false);
   };
 
@@ -318,15 +312,15 @@ const PatientForm = () => {
   };
 
   const handleAddSchoolClick = () => {
-    // Navigate to add school page with return context
+    // Navigate to add school page, carrying the whole form so nothing the
+    // user typed is lost during the detour
     const currentPath = isEditMode ? `/patients/${patientId}/edit` : '/patients/new';
     navigate('/schools/new', {
       state: {
         returnTo: currentPath,
         prefillSchoolName: schoolInputValue.trim(),
         returnContext: {
-          schoolInputValue: schoolInputValue,
-          // Include any other context needed for pre-filling
+          formData: { ...formData }
         }
       }
     });

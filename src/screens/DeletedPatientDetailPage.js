@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, Trash2, Calendar, Clock } from 'lucide-react';
 import { useDeletedPatient, usePatientData } from '../context/PatientDataContext';
-import { formatDate } from '../utils/sessionFormatting';
+import { formatDate, formatShortDate, parseAppDate, formatDisplayPhone } from '../utils/sessionFormatting';
 
 const DeletedPatientDetailPage = () => {
   const { patientId } = useParams();
@@ -11,7 +11,7 @@ const DeletedPatientDetailPage = () => {
   const { restorePatient, permanentlyDeletePatient } = usePatientData();
 
   const calculateAge = (dob) => {
-    const birthDate = new Date(dob);
+    const birthDate = parseAppDate(dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -92,7 +92,7 @@ const DeletedPatientDetailPage = () => {
         <div className="mt-2 text-sm text-red-700">
           <div className="flex items-center gap-2">
             <Calendar size={16} />
-            Deleted on {formatDate(new Date(patient.deleted_at))}
+            Deleted on {formatDate(patient.deleted_at)}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <Clock size={16} />
@@ -117,7 +117,7 @@ const DeletedPatientDetailPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-              <p className="text-lg text-gray-900">{new Date(patient.dob).toLocaleDateString()}</p>
+              <p className="text-lg text-gray-900">{formatShortDate(patient.dob)}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
@@ -131,7 +131,7 @@ const DeletedPatientDetailPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
-              <p className="text-lg text-gray-900">{patient.guardianPhone || 'Not specified'}</p>
+              <p className="text-lg text-gray-900">{patient.guardianPhone ? formatDisplayPhone(patient.guardianPhone) : 'Not specified'}</p>
             </div>
             {patient.notes && (
               <div>

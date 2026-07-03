@@ -31,10 +31,19 @@ const loadFromStorage = () => {
     const parsed = JSON.parse(stored);
 
     // Basic data integrity check
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.patients) || !Array.isArray(parsed.sessions) || !Array.isArray(parsed.schools)) {
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.patients) || !Array.isArray(parsed.sessions)) {
       console.error('Data corruption detected in localStorage');
-      // Return empty data and let the app handle recovery UI
+      // Return null and let the app handle recovery UI
       return null; // Signal corruption
+    }
+
+    // Repair partially-written data (older builds saved without schools/version).
+    // Missing schools are rebuilt from the patients' legacy school-name strings below.
+    if (!Array.isArray(parsed.schools)) {
+      const repaired = migratePatientsToSchoolIds({ ...parsed, schools: [] });
+      repaired.version = STORAGE_VERSION;
+      saveToStorage(repaired);
+      return repaired;
     }
 
     return parsed;
@@ -46,7 +55,15 @@ const loadFromStorage = () => {
 
 const saveToStorage = (data) => {
   try {
-    const serialized = JSON.stringify(data);
+    // Always persist the complete data shape so a partial caller can never
+    // truncate the stored object.
+    const complete = {
+      version: data.version || STORAGE_VERSION,
+      patients: data.patients || [],
+      sessions: data.sessions || [],
+      schools: data.schools || []
+    };
+    const serialized = JSON.stringify(complete);
     localStorage.setItem(STORAGE_KEY, serialized);
     return true;
   } catch (error) {
@@ -91,10 +108,6 @@ const getPermanentlyDeletedAt = (deletedAt) => {
   const deletedDate = new Date(deletedAt);
   deletedDate.setDate(deletedDate.getDate() + 30); // 30 days retention
   return deletedDate.toISOString();
-};
-
-const isExpiredForPermanentDeletion = (permanentlyDeletedAt) => {
-  return new Date(permanentlyDeletedAt) <= new Date();
 };
 
 const daysUntilPermanentDeletion = (permanentlyDeletedAt) => {
@@ -180,7 +193,7 @@ const validateSchoolData = (schoolData) => {
     errors.push('Point of contact is required');
   }
 
-  if (!schoolData.phone || !/^[\d\s\-\(\)\+\.]+$/.test(schoolData.phone)) {
+  if (!schoolData.phone || !/^[\d\s\-().+]+$/.test(schoolData.phone)) {
     errors.push('Valid phone number is required');
   }
 
@@ -217,7 +230,12 @@ const migratePatientsToSchoolIds = (data) => {
   const schoolMap = new Map(); // school name -> school id
   const updatedSchools = [...data.schools];
   const updatedPatients = data.patients.map(patient => {
-    if (!patient.school || typeof patient.school !== 'string') {
+    // Keep an existing valid assignment
+    if (patient.schoolId && updatedSchools.some(s => s.id === patient.schoolId)) {
+      return patient;
+    }
+
+    if (!patient.school || typeof patient.school !== 'string' || !patient.school.trim()) {
       return { ...patient, schoolId: null };
     }
 
@@ -315,9 +333,12 @@ export const store = {
     }
 
     // Run periodic cleanup of expired items (simulates background job)
-    data = store.purgeExpiredItems(data);
+    const purged = store.purgeExpiredItems(data);
+    if (purged !== data) {
+      saveToStorage(purged);
+    }
 
-    return data;
+    return purged;
   },
 
   // Patient operations
@@ -327,7 +348,8 @@ export const store = {
   getSchools: (data) => data.schools.filter(s => !s.deleted_at),
 
   getSchoolById: (data, schoolId) => {
-    return data.schools.find(school => school.id === schoolId) || null;
+    const school = data.schools.find(s => s.id === schoolId);
+    return school && !school.deleted_at ? school : null;
   },
 
   getPatientsForSchool: (data, schoolId) => {
@@ -530,55 +552,17 @@ export const store = {
     return filtered.slice(0, limit);
   },
 
-  // Legacy function for backward compatibility - will be removed in future
-  addOrUpdateSchool: (data, schoolName) => {
-    const normalizedName = normalizeString(schoolName);
-    const existingSchoolIndex = data.schools.findIndex(s =>
-      normalizeString(s.name) === normalizedName
-    );
-
-    if (existingSchoolIndex >= 0) {
-      // Update patient count
-      const existingSchool = data.schools[existingSchoolIndex];
-      const newSchools = [...data.schools];
-      newSchools[existingSchoolIndex] = {
-        ...existingSchool,
-        patient_count: existingSchool.patient_count + 1
-      };
-
-      const newData = {
-        ...data,
-        schools: newSchools
-      };
-
-      saveToStorage(newData);
-      return newData;
-    } else {
-      // Create minimal school record
-      return store.createSchool(data, {
-        name: schoolName,
-        street_address: '',
-        city: '',
-        state: 'CA', // Default state
-        zip_code: '00000',
-        point_of_contact: '',
-        phone: '',
-        email: '',
-        notes: 'Auto-created from patient assignment'
-      });
-    }
-  },
-
   getSchoolSuggestions: (data, query, limit = 10) => {
     const queryTrimmed = query ? query.trim() : '';
     const activeSchools = data.schools.filter(s => !s.deleted_at);
 
-    // If no query or query is very short, return top schools by usage/popularity
+    // If no query or query is very short, return top schools by assigned patients
     if (!queryTrimmed || queryTrimmed.length < 2) {
-      return activeSchools
+      return [...activeSchools]
         .sort((a, b) => {
-          // Sort by usage_count descending, then alphabetically
-          if (a.usage_count !== b.usage_count) return b.usage_count - a.usage_count;
+          if ((a.patient_count || 0) !== (b.patient_count || 0)) {
+            return (b.patient_count || 0) - (a.patient_count || 0);
+          }
           return a.name.localeCompare(b.name);
         })
         .slice(0, limit);
@@ -592,9 +576,11 @@ export const store = {
       }))
       .filter(match => match.score > 0)
       .sort((a, b) => {
-        // Sort by score descending, then by usage_count descending, then alphabetically
+        // Sort by score descending, then by assigned patients, then alphabetically
         if (a.score !== b.score) return b.score - a.score;
-        if (a.usage_count !== b.usage_count) return b.usage_count - a.usage_count;
+        if ((a.patient_count || 0) !== (b.patient_count || 0)) {
+          return (b.patient_count || 0) - (a.patient_count || 0);
+        }
         return a.name.localeCompare(b.name);
       })
       .slice(0, limit);
@@ -761,11 +747,11 @@ export const store = {
     );
 
     // Update school patient count
-    const newSchools = patient.schoolId ? data.schools.map(school =>
+    const newSchools = patient.schoolId ? (data.schools || []).map(school =>
       school.id === patient.schoolId
         ? { ...school, patient_count: Math.max(0, school.patient_count - 1) }
         : school
-    ) : data.schools;
+    ) : (data.schools || []);
 
     const newData = {
       ...data,
@@ -859,17 +845,12 @@ export const store = {
     const newSessions = [...data.sessions];
     newSessions[sessionIndex] = updatedSession;
 
-    // Update patient cache if patientId changed
-    let newPatients = data.patients;
-    if (updates.patientId && updates.patientId !== existingSession.patientId) {
-      // Remove from old patient and add to new patient
-      newPatients = data.patients.map(patient => {
-        if (patient.id === existingSession.patientId || patient.id === updates.patientId) {
-          return updatePatientCache(patient, newSessions);
-        }
-        return patient;
-      });
-    }
+    // Refresh the cache for every affected patient (date edits change
+    // lastSessionDate even when the patient stays the same)
+    const affectedPatientIds = new Set([existingSession.patientId, updatedSession.patientId]);
+    const newPatients = data.patients.map(patient =>
+      affectedPatientIds.has(patient.id) ? updatePatientCache(patient, newSessions) : patient
+    );
 
     const newData = {
       ...data,
@@ -942,11 +923,11 @@ export const store = {
 
     // Update school patient count
     const restoredPatient = finalPatients.find(p => p.id === patientId);
-    const newSchools = restoredPatient.schoolId ? data.schools.map(school =>
+    const newSchools = restoredPatient?.schoolId ? (data.schools || []).map(school =>
       school.id === restoredPatient.schoolId
         ? { ...school, patient_count: school.patient_count + 1 }
         : school
-    ) : data.schools;
+    ) : (data.schools || []);
 
     const newData = {
       ...data,
@@ -993,15 +974,21 @@ export const store = {
 
   permanentlyDeletePatient: (data, patientId) => {
     const patient = data.patients.find(p => p.id === patientId);
+    if (!patient) {
+      throw new Error('Patient not found');
+    }
+
     const newPatients = data.patients.filter(p => p.id !== patientId);
     const newSessions = data.sessions.filter(s => s.patientId !== patientId);
 
-    // Update school patient count
-    const newSchools = patient.schoolId ? data.schools.map(school =>
+    // Soft delete already decremented the school count; only decrement here
+    // when permanently deleting a patient that was still active.
+    const shouldDecrement = patient.schoolId && !patient.deleted_at;
+    const newSchools = shouldDecrement ? (data.schools || []).map(school =>
       school.id === patient.schoolId
         ? { ...school, patient_count: Math.max(0, school.patient_count - 1) }
         : school
-    ) : data.schools;
+    ) : (data.schools || []);
 
     const newData = {
       ...data,
@@ -1072,8 +1059,14 @@ export const store = {
       return true;
     });
 
+    const remainingPatientIds = new Set(newPatients.map(p => p.id));
     const newSessions = data.sessions.filter(s => {
       if (s.permanently_deleted_at && new Date(s.permanently_deleted_at) <= now) {
+        hasChanges = true;
+        return false;
+      }
+      // Drop sessions orphaned by a purged/removed patient
+      if (!remainingPatientIds.has(s.patientId)) {
         hasChanges = true;
         return false;
       }
@@ -1106,7 +1099,12 @@ export const store = {
   },
 
   exportData: (data) => {
-    return JSON.stringify(data, null, 2);
+    return JSON.stringify({
+      version: data.version || STORAGE_VERSION,
+      patients: data.patients || [],
+      sessions: data.sessions || [],
+      schools: data.schools || []
+    }, null, 2);
   },
 
   // School utility functions

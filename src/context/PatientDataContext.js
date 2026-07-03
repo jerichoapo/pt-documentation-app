@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { store } from '../data/store';
 import { useToastContext } from './ToastContext';
 
@@ -40,127 +40,6 @@ const patientDataReducer = (state, action) => {
         error: null
       };
 
-    case ACTIONS.ADD_PATIENT:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.UPDATE_PATIENT:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.DELETE_PATIENT:
-    case ACTIONS.SOFT_DELETE_PATIENT:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.RESTORE_PATIENT:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.PERMANENTLY_DELETE_PATIENT:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.ADD_SESSION:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        error: null
-      };
-
-    case ACTIONS.UPDATE_SESSION:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        error: null
-      };
-
-    case ACTIONS.DELETE_SESSION:
-    case ACTIONS.SOFT_DELETE_SESSION:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        error: null
-      };
-
-    case ACTIONS.RESTORE_SESSION:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        error: null
-      };
-
-    case ACTIONS.PERMANENTLY_DELETE_SESSION:
-      return {
-        ...state,
-        patients: action.payload.patients,
-        sessions: action.payload.sessions,
-        error: null
-      };
-
-    case ACTIONS.CREATE_SCHOOL:
-      return {
-        ...state,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.UPDATE_SCHOOL:
-      return {
-        ...state,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.DELETE_SCHOOL:
-    case ACTIONS.SOFT_DELETE_SCHOOL:
-      return {
-        ...state,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.RESTORE_SCHOOL:
-      return {
-        ...state,
-        schools: action.payload.schools,
-        error: null
-      };
-
-    case ACTIONS.PERMANENTLY_DELETE_SCHOOL:
-      return {
-        ...state,
-        schools: action.payload.schools,
-        error: null
-      };
-
     case ACTIONS.SET_ERROR:
       return {
         ...state,
@@ -175,6 +54,18 @@ const patientDataReducer = (state, action) => {
       };
 
     default:
+      // Every data-mutation action carries the updated data object from the
+      // store. Merge whatever slices are present so a payload can never wipe
+      // a slice it didn't touch.
+      if (action.payload && Object.values(ACTIONS).includes(action.type)) {
+        return {
+          ...state,
+          patients: action.payload.patients ?? state.patients,
+          sessions: action.payload.sessions ?? state.sessions,
+          schools: action.payload.schools ?? state.schools,
+          error: null
+        };
+      }
       return state;
   }
 };
@@ -196,10 +87,20 @@ export const PatientDataProvider = ({ children }) => {
   const [state, dispatch] = useReducer(patientDataReducer, initialState);
   const { addToast } = useToastContext();
 
+  // Latest data, updated synchronously on every mutation. React state updates
+  // are async, so sequential awaited actions (e.g. bulk restore loops) must
+  // not read from the render closure or later writes clobber earlier ones.
+  const dataRef = useRef({ patients: [], sessions: [], schools: [] });
+
   // Load data on mount
   useEffect(() => {
     try {
       const data = store.init();
+      dataRef.current = {
+        patients: data.patients,
+        sessions: data.sessions,
+        schools: data.schools
+      };
       dispatch({
         type: ACTIONS.LOAD_DATA,
         payload: {
@@ -228,18 +129,30 @@ export const PatientDataProvider = ({ children }) => {
   }, []);
 
   // Action creators
+
+  // Always hand the store the complete, freshest data object so persistence
+  // never sees a partial or stale shape.
+  const getFullData = () => ({
+    patients: dataRef.current.patients,
+    sessions: dataRef.current.sessions,
+    schools: dataRef.current.schools
+  });
+
+  // Record a mutation result synchronously, then update React state
+  const applyData = (type, newData) => {
+    dataRef.current = {
+      patients: newData.patients ?? dataRef.current.patients,
+      sessions: newData.sessions ?? dataRef.current.sessions,
+      schools: newData.schools ?? dataRef.current.schools
+    };
+    dispatch({ type, payload: newData });
+  };
+
   const addPatient = async (patientData, options = {}) => {
     try {
-      const newData = store.addPatient({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, patientData, options);
+      const newData = store.addPatient(getFullData(), patientData, options);
 
-      dispatch({
-        type: ACTIONS.ADD_PATIENT,
-        payload: { patients: newData.patients, schools: newData.schools }
-      });
+      applyData(ACTIONS.ADD_PATIENT, newData);
 
       return newData.patients[newData.patients.length - 1];
     } catch (error) {
@@ -263,16 +176,9 @@ export const PatientDataProvider = ({ children }) => {
 
   const updatePatient = async (patientId, updates) => {
     try {
-      const newData = store.updatePatient({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, patientId, updates);
+      const newData = store.updatePatient(getFullData(), patientId, updates);
 
-      dispatch({
-        type: ACTIONS.UPDATE_PATIENT,
-        payload: { patients: newData.patients, schools: newData.schools }
-      });
+      applyData(ACTIONS.UPDATE_PATIENT, newData);
     } catch (error) {
       dispatch({
         type: ACTIONS.SET_ERROR,
@@ -284,18 +190,9 @@ export const PatientDataProvider = ({ children }) => {
 
   const deletePatient = async (patientId) => {
     try {
-      const newData = store.deletePatient({
-        patients: state.patients,
-        sessions: state.sessions
-      }, patientId);
+      const newData = store.deletePatient(getFullData(), patientId);
 
-      dispatch({
-        type: ACTIONS.DELETE_PATIENT,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.DELETE_PATIENT, newData);
     } catch (error) {
       dispatch({
         type: ACTIONS.SET_ERROR,
@@ -307,18 +204,9 @@ export const PatientDataProvider = ({ children }) => {
 
   const addSession = async (sessionData) => {
     try {
-      const newData = store.addSession({
-        patients: state.patients,
-        sessions: state.sessions
-      }, sessionData);
+      const newData = store.addSession(getFullData(), sessionData);
 
-      dispatch({
-        type: ACTIONS.ADD_SESSION,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.ADD_SESSION, newData);
 
       // Show success toast
       const patient = newData.patients.find(p => p.id === sessionData.patientId);
@@ -347,18 +235,9 @@ export const PatientDataProvider = ({ children }) => {
 
   const updateSession = async (sessionId, updates) => {
     try {
-      const newData = store.updateSession({
-        patients: state.patients,
-        sessions: state.sessions
-      }, sessionId, updates);
+      const newData = store.updateSession(getFullData(), sessionId, updates);
 
-      dispatch({
-        type: ACTIONS.UPDATE_SESSION,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.UPDATE_SESSION, newData);
 
       // Show success toast
       addToast('Session updated successfully', 'success');
@@ -384,23 +263,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const deleteSession = async (sessionId) => {
     try {
-      const sessionToDelete = state.sessions.find(s => s.id === sessionId);
+      const sessionToDelete = getFullData().sessions.find(s => s.id === sessionId);
       if (!sessionToDelete) {
         throw new Error('Session not found');
       }
 
-      const newData = store.deleteSession({
-        patients: state.patients,
-        sessions: state.sessions
-      }, sessionId);
+      const newData = store.deleteSession(getFullData(), sessionId);
 
-      dispatch({
-        type: ACTIONS.DELETE_SESSION,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.DELETE_SESSION, newData);
 
       // Show success toast
       addToast('Session deleted successfully', 'success');
@@ -418,28 +288,16 @@ export const PatientDataProvider = ({ children }) => {
 
   const softDeletePatient = async (patientId) => {
     try {
-      const patientToDelete = state.patients.find(p => p.id === patientId);
+      const patientToDelete = getFullData().patients.find(p => p.id === patientId);
       if (!patientToDelete) {
         throw new Error('Patient not found');
       }
 
-      const sessionCount = store.getSessionsForPatient({
-        patients: state.patients,
-        sessions: state.sessions
-      }, patientId).length;
+      const sessionCount = store.getSessionsForPatient(getFullData(), patientId).length;
 
-      const newData = store.softDeletePatient({
-        patients: state.patients,
-        sessions: state.sessions
-      }, patientId);
+      const newData = store.softDeletePatient(getFullData(), patientId);
 
-      dispatch({
-        type: ACTIONS.SOFT_DELETE_PATIENT,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.SOFT_DELETE_PATIENT, newData);
 
       // Show success toast
       const message = sessionCount > 0
@@ -460,23 +318,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const softDeleteSession = async (sessionId) => {
     try {
-      const sessionToDelete = state.sessions.find(s => s.id === sessionId);
+      const sessionToDelete = getFullData().sessions.find(s => s.id === sessionId);
       if (!sessionToDelete) {
         throw new Error('Session not found');
       }
 
-      const newData = store.softDeleteSession({
-        patients: state.patients,
-        sessions: state.sessions
-      }, sessionId);
+      const newData = store.softDeleteSession(getFullData(), sessionId);
 
-      dispatch({
-        type: ACTIONS.SOFT_DELETE_SESSION,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.SOFT_DELETE_SESSION, newData);
 
       // Show success toast
       addToast('Note moved to Recently Deleted', 'success');
@@ -494,25 +343,17 @@ export const PatientDataProvider = ({ children }) => {
 
   const restorePatient = async (patientId) => {
     try {
-      const patientToRestore = state.patients.find(p => p.id === patientId && p.deleted_at);
+      const currentData = getFullData();
+      const patientToRestore = currentData.patients.find(p => p.id === patientId && p.deleted_at);
       if (!patientToRestore) {
         throw new Error('Patient not found or not deleted');
       }
 
-      const cascadeSessions = state.sessions.filter(s => s.deleted_with_patient_id === patientId).length;
+      const cascadeSessions = currentData.sessions.filter(s => s.deleted_with_patient_id === patientId).length;
 
-      const newData = store.restorePatient({
-        patients: state.patients,
-        sessions: state.sessions
-      }, patientId);
+      const newData = store.restorePatient(getFullData(), patientId);
 
-      dispatch({
-        type: ACTIONS.RESTORE_PATIENT,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.RESTORE_PATIENT, newData);
 
       // Show success toast
       const message = cascadeSessions > 0
@@ -533,23 +374,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const restoreSession = async (sessionId, options = {}) => {
     try {
-      const sessionToRestore = state.sessions.find(s => s.id === sessionId && s.deleted_at);
+      const sessionToRestore = getFullData().sessions.find(s => s.id === sessionId && s.deleted_at);
       if (!sessionToRestore) {
         throw new Error('Session not found or not deleted');
       }
 
-      const newData = store.restoreSession({
-        patients: state.patients,
-        sessions: state.sessions
-      }, sessionId);
+      const newData = store.restoreSession(getFullData(), sessionId);
 
-      dispatch({
-        type: ACTIONS.RESTORE_SESSION,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.RESTORE_SESSION, newData);
 
       // Show success toast (unless skipped)
       if (!options.skipToast) {
@@ -570,23 +402,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const permanentlyDeletePatient = async (patientId) => {
     try {
-      const patientToDelete = state.patients.find(p => p.id === patientId && p.deleted_at);
+      const patientToDelete = getFullData().patients.find(p => p.id === patientId && p.deleted_at);
       if (!patientToDelete) {
         throw new Error('Patient not found or not deleted');
       }
 
-      const newData = store.permanentlyDeletePatient({
-        patients: state.patients,
-        sessions: state.sessions
-      }, patientId);
+      const newData = store.permanentlyDeletePatient(getFullData(), patientId);
 
-      dispatch({
-        type: ACTIONS.PERMANENTLY_DELETE_PATIENT,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.PERMANENTLY_DELETE_PATIENT, newData);
 
       // Show success toast
       addToast('Patient permanently deleted', 'success');
@@ -604,23 +427,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const permanentlyDeleteSession = async (sessionId) => {
     try {
-      const sessionToDelete = state.sessions.find(s => s.id === sessionId && s.deleted_at);
+      const sessionToDelete = getFullData().sessions.find(s => s.id === sessionId && s.deleted_at);
       if (!sessionToDelete) {
         throw new Error('Session not found or not deleted');
       }
 
-      const newData = store.permanentlyDeleteSession({
-        patients: state.patients,
-        sessions: state.sessions
-      }, sessionId);
+      const newData = store.permanentlyDeleteSession(getFullData(), sessionId);
 
-      dispatch({
-        type: ACTIONS.PERMANENTLY_DELETE_SESSION,
-        payload: {
-          patients: newData.patients,
-          sessions: newData.sessions
-        }
-      });
+      applyData(ACTIONS.PERMANENTLY_DELETE_SESSION, newData);
 
       // Show success toast
       addToast('Note permanently deleted', 'success');
@@ -638,16 +452,9 @@ export const PatientDataProvider = ({ children }) => {
 
   const createSchool = async (schoolData) => {
     try {
-      const newData = store.createSchool({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, schoolData);
+      const newData = store.createSchool(getFullData(), schoolData);
 
-      dispatch({
-        type: ACTIONS.CREATE_SCHOOL,
-        payload: { schools: newData.schools }
-      });
+      applyData(ACTIONS.CREATE_SCHOOL, newData);
 
       // Show success toast
       addToast('School created successfully', 'success');
@@ -670,16 +477,9 @@ export const PatientDataProvider = ({ children }) => {
 
   const updateSchool = async (schoolId, updates) => {
     try {
-      const newData = store.updateSchool({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, schoolId, updates);
+      const newData = store.updateSchool(getFullData(), schoolId, updates);
 
-      dispatch({
-        type: ACTIONS.UPDATE_SCHOOL,
-        payload: { schools: newData.schools }
-      });
+      applyData(ACTIONS.UPDATE_SCHOOL, newData);
 
       // Show success toast
       addToast('School updated successfully', 'success');
@@ -702,21 +502,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const deleteSchool = async (schoolId) => {
     try {
-      const schoolToDelete = state.schools.find(s => s.id === schoolId);
+      const schoolToDelete = getFullData().schools.find(s => s.id === schoolId);
       if (!schoolToDelete) {
         throw new Error('School not found');
       }
 
-      const newData = store.deleteSchoolSafely({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, schoolId);
+      const newData = store.deleteSchoolSafely(getFullData(), schoolId);
 
-      dispatch({
-        type: ACTIONS.DELETE_SCHOOL,
-        payload: { schools: newData.schools }
-      });
+      applyData(ACTIONS.DELETE_SCHOOL, newData);
 
       // Show success toast
       addToast('School moved to Recently Deleted', 'success');
@@ -739,21 +532,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const softDeleteSchool = async (schoolId) => {
     try {
-      const schoolToDelete = state.schools.find(s => s.id === schoolId);
+      const schoolToDelete = getFullData().schools.find(s => s.id === schoolId);
       if (!schoolToDelete) {
         throw new Error('School not found');
       }
 
-      const newData = store.softDeleteSchool({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, schoolId);
+      const newData = store.softDeleteSchool(getFullData(), schoolId);
 
-      dispatch({
-        type: ACTIONS.SOFT_DELETE_SCHOOL,
-        payload: { schools: newData.schools }
-      });
+      applyData(ACTIONS.SOFT_DELETE_SCHOOL, newData);
 
       // Show success toast
       addToast('School moved to Recently Deleted', 'success');
@@ -776,21 +562,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const restoreSchool = async (schoolId) => {
     try {
-      const schoolToRestore = state.schools.find(s => s.id === schoolId && s.deleted_at);
+      const schoolToRestore = getFullData().schools.find(s => s.id === schoolId && s.deleted_at);
       if (!schoolToRestore) {
         throw new Error('School not found or not deleted');
       }
 
-      const newData = store.restoreSchool({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, schoolId);
+      const newData = store.restoreSchool(getFullData(), schoolId);
 
-      dispatch({
-        type: ACTIONS.RESTORE_SCHOOL,
-        payload: { schools: newData.schools }
-      });
+      applyData(ACTIONS.RESTORE_SCHOOL, newData);
 
       // Show success toast
       addToast('School restored successfully', 'success');
@@ -808,21 +587,14 @@ export const PatientDataProvider = ({ children }) => {
 
   const permanentlyDeleteSchool = async (schoolId) => {
     try {
-      const schoolToDelete = state.schools.find(s => s.id === schoolId && s.deleted_at);
+      const schoolToDelete = getFullData().schools.find(s => s.id === schoolId && s.deleted_at);
       if (!schoolToDelete) {
         throw new Error('School not found or not deleted');
       }
 
-      const newData = store.permanentlyDeleteSchool({
-        patients: state.patients,
-        sessions: state.sessions,
-        schools: state.schools
-      }, schoolId);
+      const newData = store.permanentlyDeleteSchool(getFullData(), schoolId);
 
-      dispatch({
-        type: ACTIONS.PERMANENTLY_DELETE_SCHOOL,
-        payload: { schools: newData.schools }
-      });
+      applyData(ACTIONS.PERMANENTLY_DELETE_SCHOOL, newData);
 
       // Show success toast
       addToast('School permanently deleted', 'success');
@@ -843,15 +615,12 @@ export const PatientDataProvider = ({ children }) => {
   };
 
   const getSchoolSuggestions = (query, limit = 10) => {
-    return store.getSchoolSuggestions({
-      patients: state.patients,
-      sessions: state.sessions,
-      schools: state.schools
-    }, query, limit);
+    return store.getSchoolSuggestions(getFullData(), query, limit);
   };
 
   const clearAllData = () => {
     store.clearAllData();
+    dataRef.current = { patients: [], sessions: [], schools: [] };
     dispatch({
       type: ACTIONS.LOAD_DATA,
       payload: { patients: [], sessions: [], schools: [] }
@@ -859,10 +628,7 @@ export const PatientDataProvider = ({ children }) => {
   };
 
   const exportData = () => {
-    return store.exportData({
-      patients: state.patients,
-      sessions: state.sessions
-    });
+    return store.exportData(getFullData());
   };
 
   // Context value
@@ -875,79 +641,34 @@ export const PatientDataProvider = ({ children }) => {
     error: state.error,
 
     // Computed helpers
-    getPatientById: (id) => store.getPatientById({
-      patients: state.patients,
-      sessions: state.sessions
-    }, id),
+    getPatientById: (id) => store.getPatientById(getFullData(), id),
 
-    getSessionsForPatient: (patientId) => store.getSessionsForPatient({
-      patients: state.patients,
-      sessions: state.sessions
-    }, patientId),
+    getSessionsForPatient: (patientId) => store.getSessionsForPatient(getFullData(), patientId),
 
-    getSessionById: (id) => store.getSessionById({
-      patients: state.patients,
-      sessions: state.sessions
-    }, id),
+    getSessionById: (id) => store.getSessionById(getFullData(), id),
 
-    getDeletedPatientById: (id) => store.getDeletedPatientById({
-      patients: state.patients,
-      sessions: state.sessions
-    }, id),
+    getDeletedPatientById: (id) => store.getDeletedPatientById(getFullData(), id),
 
-    getDeletedSessionById: (id) => store.getDeletedSessionById({
-      patients: state.patients,
-      sessions: state.sessions
-    }, id),
+    getDeletedSessionById: (id) => store.getDeletedSessionById(getFullData(), id),
 
-    getRecentlyDeletedPatients: () => store.getRecentlyDeletedPatients({
-      patients: state.patients,
-      sessions: state.sessions
-    }),
+    getRecentlyDeletedPatients: () => store.getRecentlyDeletedPatients(getFullData()),
 
-    getRecentlyDeletedSessions: () => store.getRecentlyDeletedSessions({
-      patients: state.patients,
-      sessions: state.sessions
-    }),
+    getRecentlyDeletedSessions: () => store.getRecentlyDeletedSessions(getFullData()),
 
-    getDeletedSchoolById: (id) => store.getDeletedSchoolById({
-      patients: state.patients,
-      sessions: state.sessions,
-      schools: state.schools
-    }, id),
+    getDeletedSchoolById: (id) => store.getDeletedSchoolById(getFullData(), id),
 
-    getRecentlyDeletedSchools: () => store.getRecentlyDeletedSchools({
-      patients: state.patients,
-      sessions: state.sessions,
-      schools: state.schools
-    }),
+    getRecentlyDeletedSchools: () => store.getRecentlyDeletedSchools(getFullData()),
 
     getSchoolSuggestions,
 
     // School helpers
-    getSchoolById: (id) => store.getSchoolById({
-      patients: state.patients,
-      sessions: state.sessions,
-      schools: state.schools
-    }, id),
+    getSchoolById: (id) => store.getSchoolById(getFullData(), id),
 
-    getPatientsForSchool: (schoolId) => store.getPatientsForSchool({
-      patients: state.patients,
-      sessions: state.sessions,
-      schools: state.schools
-    }, schoolId),
+    getPatientsForSchool: (schoolId) => store.getPatientsForSchool(getFullData(), schoolId),
 
-    getPatientCountForSchool: (schoolId) => store.getPatientCountForSchool({
-      patients: state.patients,
-      sessions: state.sessions,
-      schools: state.schools
-    }, schoolId),
+    getPatientCountForSchool: (schoolId) => store.getPatientCountForSchool(getFullData(), schoolId),
 
-    searchSchools: (query, options) => store.searchSchools({
-      patients: state.patients,
-      sessions: state.sessions,
-      schools: state.schools
-    }, query, options),
+    searchSchools: (query, options) => store.searchSchools(getFullData(), query, options),
 
     formatPhoneNumber: store.formatPhoneNumber,
     createGoogleMapsUrl: store.createGoogleMapsUrl,

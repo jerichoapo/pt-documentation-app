@@ -1,15 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Search, Plus } from 'lucide-react';
-import { usePatients } from '../context/PatientDataContext';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Search, Plus, X } from 'lucide-react';
+import { usePatients, usePatientData } from '../context/PatientDataContext';
+import { parseAppDate, formatShortDate } from '../utils/sessionFormatting';
 
 const PatientsListPage = () => {
   const navigate = useNavigate();
   const patients = usePatients();
+  const { getSchoolById } = usePatientData();
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const schoolIdFilter = searchParams.get('schoolId');
+  const filterSchool = schoolIdFilter ? getSchoolById(schoolIdFilter) : null;
 
   const calculateAge = (dob) => {
-    const birthDate = new Date(dob);
+    const birthDate = parseAppDate(dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -21,17 +27,36 @@ const PatientsListPage = () => {
     return age;
   };
 
+  const getSchoolName = (patient) => {
+    if (patient.schoolId) {
+      const school = getSchoolById(patient.schoolId);
+      if (school) return school.name;
+    }
+    return patient.school || '';
+  };
+
   const filteredPatients = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return patients;
+    let result = patients;
+
+    if (schoolIdFilter) {
+      result = result.filter(patient => patient.schoolId === schoolIdFilter);
     }
 
-    const term = searchTerm.toLowerCase().trim();
-    return patients.filter(patient =>
-      `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(term) ||
-      (patient.diagnosis && patient.diagnosis.toLowerCase().includes(term))
-    );
-  }, [patients, searchTerm]);
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      result = result.filter(patient =>
+        `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(term) ||
+        (patient.diagnosis && patient.diagnosis.toLowerCase().includes(term))
+      );
+    }
+
+    return result;
+  }, [patients, searchTerm, schoolIdFilter]);
+
+  const clearSchoolFilter = () => {
+    searchParams.delete('schoolId');
+    setSearchParams(searchParams, { replace: true });
+  };
 
   const handlePatientClick = (patientId) => {
     navigate(`/patients/${patientId}`);
@@ -61,6 +86,20 @@ const PatientsListPage = () => {
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+        {schoolIdFilter && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+              School: {filterSchool ? filterSchool.name : 'Unknown school'}
+              <button
+                onClick={clearSchoolFilter}
+                className="hover:text-blue-600"
+                aria-label="Clear school filter"
+              >
+                <X size={14} />
+              </button>
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -125,13 +164,13 @@ const PatientsListPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-700">
-                        {patient.school || 'Not specified'}
+                        {getSchoolName(patient) || 'Not specified'}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-700">
                         {patient.lastSessionDate
-                          ? new Date(patient.lastSessionDate).toLocaleDateString()
+                          ? formatShortDate(patient.lastSessionDate)
                           : 'No sessions'
                         }
                       </div>

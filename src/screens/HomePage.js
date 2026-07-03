@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, ChevronRight, MoreVertical } from 'lucide-react';
+import { Calendar, ChevronRight } from 'lucide-react';
 import { usePatients } from '../context/PatientDataContext';
 import PatientActionsMenu from '../components/PatientActionsMenu';
 import { useStartSession } from '../hooks/useStartSession';
+import { parseAppDate, toDateInputValue, formatShortDate } from '../utils/sessionFormatting';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const HomePage = () => {
   };
 
   const calculateAge = (dob) => {
-    const birthDate = new Date(dob);
+    const birthDate = parseAppDate(dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -48,8 +49,8 @@ const HomePage = () => {
           <label className="block text-sm font-medium text-gray-700 mb-2">Session Date</label>
           <input
             type="date"
-            value={selectedDate.toISOString().split('T')[0]}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            value={toDateInputValue(selectedDate)}
+            onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -98,7 +99,7 @@ const HomePage = () => {
                   <p className="text-sm text-gray-600">Diagnosis: {patient.diagnosis || 'Not specified'}</p>
                   <p className="text-xs text-gray-500 mt-2">
                     Last session: {patient.lastSessionDate
-                      ? new Date(patient.lastSessionDate).toLocaleDateString()
+                      ? formatShortDate(patient.lastSessionDate)
                       : 'No sessions yet'
                     }
                   </p>
@@ -106,7 +107,7 @@ const HomePage = () => {
 
                 <div className="flex gap-3 mt-4">
                   <button
-                    onClick={() => startSession(patient.id, 'home')}
+                    onClick={() => startSession(patient.id, 'home', selectedDate)}
                     className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
                   >
                     Start Session

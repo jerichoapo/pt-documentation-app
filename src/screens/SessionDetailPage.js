@@ -4,7 +4,7 @@ import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2, Download } from 'lu
 import { useSession, usePatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
-import { formatDate, formatTime, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
+import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
 import { exportSingleNoteToPDF, exportSingleNoteToDOCX } from '../utils/exportNotes';
 import ExportFormatModal from '../components/ExportFormatModal';
 
@@ -28,7 +28,7 @@ const SessionDetailPage = () => {
     if (session && !editedSession) {
       setEditedSession({
         ...session,
-        sessionDate: session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : ''
+        sessionDate: session.sessionDate ? toDateInputValue(session.sessionDate) : ''
       });
     }
   }, [session, editedSession]);
@@ -40,18 +40,39 @@ const SessionDetailPage = () => {
   const handleCancelEdit = () => {
     setEditedSession({
       ...session,
-      sessionDate: session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : ''
+      sessionDate: session.sessionDate ? toDateInputValue(session.sessionDate) : ''
     });
     setIsEditing(false);
+  };
+
+  const getMissingSections = () => {
+    const missing = [];
+    if (!editedSession?.subjective?.trim()) missing.push('Subjective');
+    const hasCategory = Object.values(editedSession?.objectiveCategories || {}).some(Boolean);
+    if (!hasCategory || !editedSession?.objectiveNotes?.trim()) missing.push('Objective');
+    if (!editedSession?.assessment?.trim()) missing.push('Assessment');
+    if (!editedSession?.plan?.trim()) missing.push('Plan');
+    return missing;
   };
 
   const handleSave = async () => {
     if (!editedSession) return;
 
+    if (!editedSession.sessionDate) {
+      addToast('Please select a valid session date before saving.', 'warning');
+      return;
+    }
+
+    const missingSections = getMissingSections();
+    if (missingSections.length > 0) {
+      addToast(`Cannot save. Missing required sections: ${missingSections.join(', ')}`, 'warning');
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateSession(sessionId, {
-        sessionDate: new Date(editedSession.sessionDate).toISOString(),
+        sessionDate: editedSession.sessionDate,
         startTime: editedSession.startTime || null,
         endTime: editedSession.endTime || null,
         subjective: editedSession.subjective?.trim() || '',
@@ -215,7 +236,7 @@ const SessionDetailPage = () => {
                   className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <span>{formatDate(new Date(session.sessionDate))}</span>
+                <span>{formatDate(session.sessionDate)}</span>
               )}
             </div>
             <div className="flex items-center gap-2">

@@ -40,9 +40,9 @@ const PatientActionsMenu = ({ patientId, patientName }) => {
     const sessions = getSessionsForPatient(patientId);
     const sessionCount = sessions.length;
 
-    let confirmMessage = `Delete ${patientName}? This cannot be undone.`;
+    let confirmMessage = `Move ${patientName} to Recently Deleted?`;
     if (sessionCount > 0) {
-      confirmMessage = `Delete ${patientName} and ${sessionCount} session note${sessionCount === 1 ? '' : 's'}? This cannot be undone.`;
+      confirmMessage = `Move ${patientName} and ${sessionCount} session note${sessionCount === 1 ? '' : 's'} to Recently Deleted?`;
     }
 
     if (window.confirm(confirmMessage)) {

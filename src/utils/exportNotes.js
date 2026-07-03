@@ -3,6 +3,7 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import { parseAppDate } from './sessionFormatting';
 
 // Initialize pdfMake with fonts
 if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
@@ -13,7 +14,7 @@ if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
 
 // Helper function to format SOAP note content
 const formatSOAPContent = (session, patient, provider) => {
-  const sessionDate = new Date(session.sessionDate).toLocaleDateString('en-US', {
+  const sessionDate = parseAppDate(session.sessionDate).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -603,7 +604,7 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         resolve();
-      });
+      }).catch(reject);
     } catch (error) {
       reject(error);
     }
@@ -828,7 +829,7 @@ export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         resolve();
-      });
+      }).catch(reject);
     } catch (error) {
       reject(error);
     }

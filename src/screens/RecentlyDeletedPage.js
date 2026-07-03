@@ -168,7 +168,20 @@ const RecentlyDeletedPage = () => {
 
   const handleBulkRestore = async () => {
     const count = selectedItems.size;
-    if (window.confirm(`Restore ${count} ${activeTab}?`)) {
+
+    let confirmMessage = `Restore ${count} ${activeTab}?`;
+    if (activeTab === 'sessions') {
+      const orphanCount = [...selectedItems].filter(id => {
+        const session = sessions.find(s => s.id === id);
+        const patient = session ? getDeletedPatientById(session.patientId) : null;
+        return patient && patient.deleted_at;
+      }).length;
+      if (orphanCount > 0) {
+        confirmMessage = `Restore ${count} notes? ${orphanCount} of them belong to deleted patients and won't appear anywhere until those patients are restored.`;
+      }
+    }
+
+    if (window.confirm(confirmMessage)) {
       for (const id of selectedItems) {
         try {
           if (activeTab === 'patients') {
@@ -412,7 +425,7 @@ const RecentlyDeletedPage = () => {
                                 to={`/recently-deleted/sessions/${item.id}`}
                                 className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                               >
-                                Session on {formatDate(new Date(item.sessionDate))}
+                                Session on {formatDate(item.sessionDate)}
                               </Link>
                               <div className="text-sm text-gray-600">
                                 {item.subjective?.substring(0, 50)}
@@ -441,7 +454,7 @@ const RecentlyDeletedPage = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar size={16} />
-                        {formatDate(new Date(item.deleted_at))}
+                        {formatDate(item.deleted_at)}
                       </div>
                     </td>
                     <td className="px-6 py-4">

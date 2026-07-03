@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, X } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 
@@ -128,7 +128,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
         break;
 
       case 'phone':
-        if (!value || !/^[\d\s\-\(\)\+\.]+$/.test(value)) {
+        if (!value || !/^[\d\s\-().+]+$/.test(value)) {
           newErrors.phone = 'Valid phone number is required';
         } else {
           delete newErrors.phone;
@@ -175,7 +175,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
     if (!formData.state || !US_STATES.includes(formData.state)) newErrors.state = 'Valid state is required';
     if (!formData.zip_code || !/^\d{5}$/.test(formData.zip_code)) newErrors.zip_code = 'ZIP code must be exactly 5 digits';
     if (!formData.point_of_contact.trim()) newErrors.point_of_contact = 'Point of contact is required';
-    if (!formData.phone || !/^[\d\s\-\(\)\+\.]+$/.test(formData.phone)) newErrors.phone = 'Valid phone number is required';
+    if (!formData.phone || !/^[\d\s\-().+]+$/.test(formData.phone)) newErrors.phone = 'Valid phone number is required';
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Valid email address is required';
 
     setErrors(newErrors);
@@ -220,7 +220,12 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
   };
 
   const handleCancel = () => {
-    navigate('/schools');
+    if (returnTo) {
+      // Came from the patient form - go back with the typed data intact
+      navigate(returnTo, { state: { returnContext } });
+    } else {
+      navigate('/schools');
+    }
   };
 
   if (isLoading && isEdit) {
@@ -235,13 +240,13 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
     <div className="max-w-2xl mx-auto">
       {/* Back Navigation */}
       <div className="mb-6">
-        <Link
-          to="/schools"
+        <button
+          onClick={handleCancel}
           className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
         >
           <ArrowLeft size={20} />
-          Back to Schools
-        </Link>
+          {returnTo ? 'Back to Patient Form' : 'Back to Schools'}
+        </button>
       </div>
 
       {/* Form */}
