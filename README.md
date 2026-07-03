@@ -5,6 +5,9 @@ Pick a student, document a SOAP session in a guided wizard, and export a signed
 note to PDF or DOCX for the district or clinic. All data lives in the browser's
 localStorage — there is no backend, no login, and nothing leaves the device.
 
+**Live app:** https://pt-app-zeta.vercel.app (only the app code is hosted —
+your data never touches the server; see [Data & privacy](#data--privacy)).
+
 ## Features
 
 - **Guided SOAP wizard** — Subjective → Objective → Assessment → Plan → Review,
@@ -51,11 +54,28 @@ CI=true npm run build                             # production build; CI mode fa
 
 ## Data & privacy
 
-All data is stored in this browser profile only, under the localStorage keys
+**Where data lives:** everything (patients, notes, drafts, provider profile) is
+stored in the browser's localStorage on the device you're using, under the keys
 `ptAppData` (schema v1.4), `pt-app-profile`, `pt-app-meta`, and
-`ptAppSessionDraft`. There is no sync, server, or account. The JSON backup file
-(Settings → Your Data) is the recovery mechanism — download one regularly, since
-clearing browser data deletes everything.
+`ptAppSessionDraft`. The Vercel deployment serves only static app code — the
+app makes no network calls after loading, so nothing you type ever reaches a
+server. Exports (PDF/DOCX) and backups (JSON) are generated on-device and only
+become shareable files when you save them somewhere.
+
+**What that means in practice:**
+
+- **Every browser is a separate silo.** Notes typed in Chrome don't exist in
+  Safari, and phone data ≠ laptop data. There is no sync; the backup file
+  (Settings → Your Data → Download/Import Backup) is the only way to move data,
+  and importing is a wholesale replace, not a merge. Pick one primary device.
+- **On iPhone/iPad, "Add to Home Screen" gets its own storage container**,
+  separate from regular Safari tabs. Use the home-screen icon from day one —
+  it's also exempt from iOS Safari's ~7-day storage eviction for sites you
+  haven't visited, which can otherwise silently delete localStorage.
+- **Clearing browser data deletes everything** ("Clear History and Website
+  Data" on iOS, clearing site data in any browser, or deleting the home-screen
+  icon). There is no server copy to recover from — download a backup regularly;
+  the app nudges you after 7 days without one.
 
 The app has no authentication or encryption of its own (a deliberate scope
 decision for a single-user tool); rely on device-level protections such as OS
@@ -79,6 +99,14 @@ rejecting them.
 
 Built with Create React App (react-scripts 5), React 19, react-router v7,
 Tailwind CSS 3, lucide-react icons, pdfmake, and docx.
+
+## Deployment
+
+The app is hosted on Vercel at https://pt-app-zeta.vercel.app as a static
+build. [vercel.json](vercel.json) rewrites all non-asset paths to `index.html`
+so react-router deep links survive refresh. Deploys are pushed manually via the
+CLI (`npx vercel deploy --prod`) — pushing to GitHub does **not** auto-deploy
+unless the repo is connected to Vercel's Git integration in the dashboard.
 
 ## Project docs
 

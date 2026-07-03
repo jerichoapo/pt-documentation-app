@@ -3,6 +3,9 @@
 **Finish your SOAP notes before you leave the building — and keep every record
 on your own device.**
 
+**Try it now: [pt-app-zeta.vercel.app](https://pt-app-zeta.vercel.app)** — no
+account, no install; it opens empty and ready.
+
 ---
 
 ## The problem
@@ -51,10 +54,22 @@ by policy.
 
 ## Your data, actually yours
 
-There is no server to trust because there is no server. Notes live in your
-browser on your machine and never travel anywhere unless you export or back
-them up yourself. A one-click backup file (and a matching restore) is your
-safety net — the app reminds you when it's been a week.
+There is no server to trust because there is no server. The website only
+delivers the app itself — every note you write is stored inside the browser on
+your own device and never travels anywhere unless you export or back it up
+yourself. Three habits keep that model safe:
+
+1. **Pick one device and stick with it.** Each browser on each device keeps its
+   own separate copy — there's no sync. Move data between devices with the
+   built-in backup file (Settings → Download Backup, then Import on the other
+   device).
+2. **On an iPhone or iPad, use Share → "Add to Home Screen"** and always open
+   the app from that icon. It behaves like a real app, works offline, and its
+   storage is protected from Safari's periodic cleanup of sites you haven't
+   visited lately.
+3. **Download a backup weekly** (the app reminds you). Clearing browser data —
+   or losing the device — erases your notes; the backup file is your recovery
+   plan, so keep it somewhere that survives the device.
 
 *Straight talk: this is a single-therapist tool, not a certified EHR. It has no
 accounts or built-in encryption, so pair it with the basics your district
@@ -65,8 +80,10 @@ file somewhere safe.*
 
 | | |
 |---|---|
+| **Get it at** | [pt-app-zeta.vercel.app](https://pt-app-zeta.vercel.app) |
 | **Works on** | Any modern browser — laptop or tablet, mouse or touch |
 | **Requires** | Nothing. No account, no install, no internet after load |
+| **Data lives** | On your device only — the server never sees a note |
 | **Exports** | PDF and Word (.docx), single note or full history |
 | **Captures** | SOAP + categories, TherEx/TherAct minutes, goals, frequency |
 | **Safety** | Draft autosave, amendment trail, 30-day trash, JSON backup |
