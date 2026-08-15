@@ -125,3 +125,15 @@ Unit tests cover the store (corruption/migration/soft-delete regression tests)
 and date formatting (`src/data/store.test.js`,
 `src/utils/sessionFormatting.test.js`). After touching either module, run the
 tests — they exist because those bugs happened.
+
+## Disclaimer
+
+This is a personal project, not a certified medical device, an approved
+electronic health record, or a validated system of record. It has not been
+evaluated against HIPAA, FERPA, or any district or clinic compliance
+requirement. Anyone considering it for real documentation is responsible for
+confirming it meets their own regulatory and record-retention obligations.
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE).
