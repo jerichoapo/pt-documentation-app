@@ -101,10 +101,6 @@ Tailwind CSS 3, lucide-react icons, pdfmake, and docx.
 Hosted on Vercel as a static build. [vercel.json](vercel.json) rewrites non-asset
 paths to `index.html` so react-router deep links survive a refresh.
 
-## Testing
-
-37 unit tests over the store (corruption, migration, and soft-delete regressions)
-and date formatting. They exist because those bugs happened.
 
 ## Disclaimer
 
