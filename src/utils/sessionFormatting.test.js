@@ -1,4 +1,4 @@
-import { parseAppDate, toDateInputValue, formatDate, formatShortDate, formatDisplayPhone, getSessionDurationMinutes, isPatientDueThisWeek, formatMediumDate, calculateAge, formatAge } from './sessionFormatting';
+import { parseAppDate, toDateInputValue, formatDate, formatShortDate, formatDisplayPhone, getSessionDurationMinutes, isPatientDueThisWeek, formatMediumDate, calculateAge, formatAge, visitsThisWeek, sortDueFirst } from './sessionFormatting';
 
 describe('parseAppDate', () => {
   test('parses plain date strings as local dates (no timezone day shift)', () => {
@@ -129,5 +129,33 @@ describe('calculateAge / formatAge', () => {
     expect(formatAge('2022-07-01', now)).toBe('4 y 3 m');
     expect(formatAge('2018-03-14', now)).toBe('8 years');
     expect(formatAge('garbage', now)).toBe('Unknown');
+  });
+});
+
+describe('visitsThisWeek / sortDueFirst', () => {
+  // Wednesday July 1, 2026 (week runs Mon Jun 29 - Sun Jul 5)
+  const now = new Date(2026, 6, 1, 12, 0);
+
+  test('counts this week only, skipping deleted notes and other patients', () => {
+    const sessions = [
+      { patientId: 'p1', sessionDate: '2026-06-29' },
+      { patientId: 'p1', sessionDate: '2026-07-01' },
+      { patientId: 'p1', sessionDate: '2026-06-28' },
+      { patientId: 'p1', sessionDate: '2026-06-30', deleted_at: '2026-07-01T00:00:00Z' },
+      { patientId: 'p2', sessionDate: '2026-06-30' }
+    ];
+    expect(visitsThisWeek({ id: 'p1' }, sessions, now)).toBe(2);
+  });
+
+  test('due patients come first, order otherwise preserved', () => {
+    const a = { id: 'a', visitFrequency: { timesPerWeek: 1 } };
+    const b = { id: 'b', visitFrequency: { timesPerWeek: 1 } };
+    const c = { id: 'c', visitFrequency: { timesPerWeek: 2 } };
+    const d = { id: 'd', visitFrequency: null };
+    const sessions = [
+      { patientId: 'a', sessionDate: '2026-06-30' },
+      { patientId: 'c', sessionDate: '2026-06-30' }
+    ];
+    expect(sortDueFirst([a, b, c, d], sessions, now).map(p => p.id)).toEqual(['b', 'c', 'a', 'd']);
   });
 });

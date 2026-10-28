@@ -5,7 +5,7 @@ import { usePatients, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import PatientActionsMenu from '../components/PatientActionsMenu';
 import { useStartSession } from '../hooks/useStartSession';
-import { parseAppDate, toDateInputValue, formatShortDate, isPatientDueThisWeek } from '../utils/sessionFormatting';
+import { parseAppDate, toDateInputValue, formatShortDate, formatMediumDate, formatAge, isPatientDueThisWeek, visitsThisWeek, sortDueFirst } from '../utils/sessionFormatting';
 import { getAppMeta, daysSince } from '../utils/appMeta';
 
 const BACKUP_NUDGE_AFTER_DAYS = 7;
@@ -18,6 +18,7 @@ const HomePage = () => {
   const startSession = useStartSession();
   const { profile, isLoading: profileLoading } = useProfile();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingDate, setEditingDate] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [groupBySchool, setGroupBySchool] = useState(true);
   const [backupNudgeDismissed, setBackupNudgeDismissed] = useState(
@@ -76,45 +77,31 @@ const HomePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredPatients, groupBySchool]);
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  };
-
-  const calculateAge = (dob) => {
-    const birthDate = parseAppDate(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-
-    return age;
-  };
-
   const handleViewPatient = (patientId) => {
     navigate(`/patients/${patientId}`);
   };
 
+  const dueLabel = (patient) =>
+    `${visitsThisWeek(patient, sessions)} of ${patient.visitFrequency.timesPerWeek} visits this week`;
+
   return (
     <div className="max-w-5xl mx-auto">
       {showBackupNudge && (
-        <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+        <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg pl-4 pr-1 py-1 mb-4">
           <div className="flex items-center gap-2 text-sm text-amber-800">
             <HardDrive size={18} className="flex-shrink-0" />
             <span>
               {lastBackupAt
                 ? `Last backup: ${backupAge} day${backupAge !== 1 ? 's' : ''} ago.`
                 : 'Your data has never been backed up.'}{' '}
-              <Link to="/settings" className="font-semibold underline hover:text-amber-900">
+              <Link to="/settings" className="inline-flex items-center min-h-[44px] font-semibold underline hover:text-amber-900">
                 Download a backup
               </Link>
             </span>
           </div>
           <button
             onClick={dismissBackupNudge}
-            className="text-amber-600 hover:text-amber-800 flex-shrink-0"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-amber-600 hover:text-amber-800 flex-shrink-0"
             aria-label="Dismiss backup reminder"
           >
             <X size={18} />
@@ -123,46 +110,52 @@ const HomePage = () => {
       )}
 
       {showProfileNudge && (
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-sm text-blue-800">
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-1 mb-4 text-sm text-blue-800">
           <UserCog size={18} className="flex-shrink-0" />
           <span>
             Add your provider info so exported notes are signed.{' '}
-            <Link to="/settings/profile" className="font-semibold underline hover:text-blue-900">
+            <Link to="/settings/profile" className="inline-flex items-center min-h-[44px] font-semibold underline hover:text-blue-900">
               Set up profile
             </Link>
           </span>
         </div>
       )}
 
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Select Patient & Session</h2>
+      <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Caseload</h2>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-gray-700">Session Date</h3>
-          <div className="flex items-center gap-2">
-            <Calendar className="text-blue-600" size={24} />
-            <span className="text-lg font-medium text-gray-700">{formatDate(selectedDate)}</span>
-          </div>
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Session Date</label>
+      <div className="flex flex-wrap items-center gap-x-2 mb-4 text-sm text-gray-700">
+        <Calendar className="text-blue-600" size={18} aria-hidden="true" />
+        <span>
+          Documenting for <strong>{formatMediumDate(selectedDate)}</strong>
+        </span>
+        <button
+          onClick={() => setEditingDate(!editingDate)}
+          className="min-h-[44px] px-2 text-blue-600 hover:text-blue-800 font-medium"
+          aria-expanded={editingDate}
+        >
+          {editingDate ? 'Done' : 'Change'}
+        </button>
+        {editingDate && (
           <input
             type="date"
+            aria-label="Session date"
             value={toDateInputValue(selectedDate)}
             onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-auto min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-        </div>
+        )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 className="text-xl font-semibold text-gray-700">Patients</h3>
-          {patients.length > 0 && (
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+        {patients.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <p className="text-sm text-gray-600">
+              {patients.length} patient{patients.length === 1 ? '' : 's'}
+            </p>
             <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm font-medium">
               <button
                 onClick={() => setGroupBySchool(true)}
-                className={`flex items-center gap-1.5 px-3 py-2 ${
+                className={`flex items-center gap-1.5 px-3 min-h-[44px] ${
                   groupBySchool ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -171,7 +164,7 @@ const HomePage = () => {
               </button>
               <button
                 onClick={() => setGroupBySchool(false)}
-                className={`flex items-center gap-1.5 px-3 py-2 ${
+                className={`flex items-center gap-1.5 px-3 min-h-[44px] ${
                   !groupBySchool ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -179,8 +172,8 @@ const HomePage = () => {
                 A–Z
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {patients.length > 0 && (
           <div className="relative mb-6">
@@ -200,7 +193,7 @@ const HomePage = () => {
             <p className="text-gray-600 mb-4">No patients found. Add your first patient to get started.</p>
             <Link
               to="/patients/new"
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
+              className="inline-flex items-center min-h-[44px] bg-blue-600 text-white px-6 rounded-lg hover:bg-blue-700 font-medium"
             >
               + Add Patient
             </Link>
@@ -218,17 +211,17 @@ const HomePage = () => {
                   <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
                     {schoolName}
                   </h4>
-                  <span className="text-xs text-gray-400">({group.length})</span>
+                  <span className="text-sm text-gray-500">({group.length})</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {group.map(patient => renderPatientCard(patient, false))}
+                  {sortDueFirst(group, sessions).map(patient => renderPatientCard(patient, false))}
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredPatients.map(patient => renderPatientCard(patient, true))}
+            {sortDueFirst(filteredPatients, sessions).map(patient => renderPatientCard(patient, true))}
           </div>
         )}
       </div>
@@ -240,33 +233,34 @@ const HomePage = () => {
     return (
       <div
         key={patient.id}
-        className="p-6 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:shadow-md transition-all relative"
+        className="p-4 sm:p-6 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:shadow-md transition-all relative"
       >
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-2 right-2">
           <PatientActionsMenu
             patientId={patient.id}
             patientName={`${patient.firstName} ${patient.lastName}`}
           />
         </div>
 
-        <div className="pr-8">
-          <h4 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
+        <div className="pr-10">
+          <h4 className="text-lg font-bold text-gray-800 mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             {patient.firstName} {patient.lastName}
             {isPatientDueThisWeek(patient, sessions) && (
               <span
                 className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold"
-                title={`Seen fewer than ${patient.visitFrequency.timesPerWeek}× this week`}
+                title={dueLabel(patient)}
+                aria-label={`Due: ${dueLabel(patient)}`}
               >
                 Due
               </span>
             )}
           </h4>
-          <p className="text-sm text-gray-600">Age: {calculateAge(patient.dob)} years</p>
+          <p className="text-sm text-gray-600">Age: {formatAge(patient.dob)}</p>
           <p className="text-sm text-gray-600">Diagnosis: {patient.diagnosis || 'Not specified'}</p>
           {schoolName && (
             <p className="text-sm text-gray-600">School: {schoolName}</p>
           )}
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             Last session: {patient.lastSessionDate
               ? formatShortDate(patient.lastSessionDate)
               : 'No sessions yet'
@@ -277,14 +271,14 @@ const HomePage = () => {
         <div className="flex gap-3 mt-4">
           <button
             onClick={() => startSession(patient.id, { referrer: 'home', sessionDate: selectedDate })}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
+            className="flex-1 min-h-[44px] bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
           >
             Start Session
             <ChevronRight size={16} />
           </button>
           <button
             onClick={() => handleViewPatient(patient.id)}
-            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium"
+            className="min-h-[44px] bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 font-medium"
           >
             View ↗
           </button>

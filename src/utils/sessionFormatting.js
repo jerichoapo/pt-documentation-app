@@ -107,23 +107,34 @@ export const formatTimeRange = (startTime, endTime) => {
   return `${formatTime(startTime)} - ${formatTime(endTime)}`;
 };
 
-// True when the patient has a visit frequency set and has fewer sessions this
-// calendar week (Mon-Sun, local time) than that frequency calls for
-export const isPatientDueThisWeek = (patient, sessions, now = new Date()) => {
-  const timesPerWeek = patient?.visitFrequency?.timesPerWeek;
-  if (!timesPerWeek) return false;
-
+// Number of the patient's non-deleted sessions this calendar week (Mon-Sun,
+// local time)
+export const visitsThisWeek = (patient, sessions, now = new Date()) => {
   const weekStart = new Date(now);
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // back to Monday
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 7);
 
-  const sessionsThisWeek = sessions.filter(s => {
+  return sessions.filter(s => {
     if (s.patientId !== patient.id || s.deleted_at) return false;
     const date = parseAppDate(s.sessionDate);
     return !isNaN(date.getTime()) && date >= weekStart && date < weekEnd;
   }).length;
+};
 
-  return sessionsThisWeek < timesPerWeek;
+// True when the patient has a visit frequency set and has fewer sessions this
+// calendar week than that frequency calls for
+export const isPatientDueThisWeek = (patient, sessions, now = new Date()) => {
+  const timesPerWeek = patient?.visitFrequency?.timesPerWeek;
+  if (!timesPerWeek) return false;
+  return visitsThisWeek(patient, sessions, now) < timesPerWeek;
+};
+
+// Due patients first; the existing order holds within each half
+export const sortDueFirst = (patients, sessions, now = new Date()) => {
+  const due = [];
+  const rest = [];
+  patients.forEach(p => (isPatientDueThisWeek(p, sessions, now) ? due : rest).push(p));
+  return [...due, ...rest];
 };

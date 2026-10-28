@@ -70,7 +70,7 @@ const PatientActionsMenu = ({ patientId, patientName }) => {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
         aria-label="Patient actions"
       >
         <MoreVertical size={20} className="text-gray-600" />
@@ -81,19 +81,19 @@ const PatientActionsMenu = ({ patientId, patientName }) => {
           <div className="py-1">
             <button
               onClick={handleViewAllNotes}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="block w-full text-left px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 transition-colors"
             >
               View All Notes
             </button>
             <button
               onClick={handleEditPatient}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="block w-full text-left px-4 py-3 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 transition-colors"
             >
               Edit Patient
             </button>
             <button
               onClick={handleDeletePatient}
-              className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              className="block w-full text-left px-4 py-3 min-h-[44px] text-sm text-red-600 hover:bg-red-50 transition-colors"
             >
               Delete Patient
             </button>
