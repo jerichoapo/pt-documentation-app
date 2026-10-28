@@ -55,6 +55,8 @@ const check = async (page, name) => {
     return { scrollWidth: doc.scrollWidth, clientWidth: doc.clientWidth, small };
   }, MIN_TARGET);
 
+  // Sticky bars land mid-image in a full-page shot taken while scrolled
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
 
   const lines = [];
