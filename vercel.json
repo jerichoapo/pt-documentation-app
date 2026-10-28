@@ -1,6 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/((?!static/|favicon\\.ico|manifest\\.json|logo.*\\.png|robots\\.txt).*)", "destination": "/index.html" }
+    { "source": "/((?!static/|api/|icons/|fonts/|manifest\\.json|service-worker\\.js|robots\\.txt).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/service-worker.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ],
+  "crons": [
+    { "path": "/api/keep-alive", "schedule": "0 15 * * *" }
   ]
 }
