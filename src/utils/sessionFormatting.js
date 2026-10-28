@@ -35,6 +35,32 @@ export const formatShortDate = (date) => {
   return d.toLocaleDateString();
 };
 
+// "Tue, Oct 27, 2026": fits a phone line where formatDate's long form wraps
+export const formatMediumDate = (date) => {
+  const d = parseAppDate(date);
+  if (isNaN(d.getTime())) return 'Unknown date';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+// Whole years and months from a 'YYYY-MM-DD' birth date, in local time
+export const calculateAge = (dob, now = new Date()) => {
+  if (!dob) return null;
+  const birth = parseAppDate(dob);
+  if (isNaN(birth.getTime())) return null;
+  const totalMonths = (now.getFullYear() - birth.getFullYear()) * 12
+    + (now.getMonth() - birth.getMonth())
+    - (now.getDate() < birth.getDate() ? 1 : 0);
+  if (totalMonths < 0) return null;
+  return { years: Math.floor(totalMonths / 12), months: totalMonths % 12 };
+};
+
+// Under 6, months matter for tracking progress: "4 y 3 m". Older: "8 years".
+export const formatAge = (dob, now = new Date()) => {
+  const age = calculateAge(dob, now);
+  if (!age) return 'Unknown';
+  return age.years < 6 ? `${age.years} y ${age.months} m` : `${age.years} years`;
+};
+
 // Display a stored phone number as (XXX) XXX-XXXX when it has 10 digits
 export const formatDisplayPhone = (phone) => {
   if (!phone) return '';

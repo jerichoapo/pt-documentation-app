@@ -1,4 +1,4 @@
-import { parseAppDate, toDateInputValue, formatDate, formatShortDate, formatDisplayPhone, getSessionDurationMinutes, isPatientDueThisWeek } from './sessionFormatting';
+import { parseAppDate, toDateInputValue, formatDate, formatShortDate, formatDisplayPhone, getSessionDurationMinutes, isPatientDueThisWeek, formatMediumDate, calculateAge, formatAge } from './sessionFormatting';
 
 describe('parseAppDate', () => {
   test('parses plain date strings as local dates (no timezone day shift)', () => {
@@ -95,5 +95,39 @@ describe('isPatientDueThisWeek', () => {
   test('never due without a frequency', () => {
     expect(isPatientDueThisWeek({ id: 'p1', visitFrequency: null }, [], now)).toBe(false);
     expect(isPatientDueThisWeek({ id: 'p1' }, [], now)).toBe(false);
+  });
+});
+
+describe('formatMediumDate', () => {
+  test('short weekday and month, no UTC shift', () => {
+    expect(formatMediumDate('2026-10-27')).toBe('Tue, Oct 27, 2026');
+  });
+
+  test('handles invalid input without throwing', () => {
+    expect(formatMediumDate('garbage')).toBe('Unknown date');
+  });
+});
+
+describe('calculateAge / formatAge', () => {
+  const now = new Date(2026, 9, 28); // local Oct 28, 2026
+
+  test('counts whole years and months', () => {
+    expect(calculateAge('2018-03-14', now)).toEqual({ years: 8, months: 7 });
+  });
+
+  test('does not shift a day across UTC', () => {
+    expect(calculateAge('2018-10-28', now)).toEqual({ years: 8, months: 0 });
+    expect(calculateAge('2018-10-29', now)).toEqual({ years: 7, months: 11 });
+  });
+
+  test('returns null for invalid input', () => {
+    expect(calculateAge('garbage', now)).toBeNull();
+    expect(calculateAge('', now)).toBeNull();
+  });
+
+  test('formats months for young children only', () => {
+    expect(formatAge('2022-07-01', now)).toBe('4 y 3 m');
+    expect(formatAge('2018-03-14', now)).toBe('8 years');
+    expect(formatAge('garbage', now)).toBe('Unknown');
   });
 });
