@@ -1,18 +1,25 @@
 # PT App — Pediatric Therapy Notes
 
-Local-first documentation app for a school-based pediatric physical therapist.
-Single user, no backend: all data lives in browser localStorage. The core loop is:
+Documentation app for a school-based pediatric physical therapist. One user signs
+in with email and password; her data lives in one Supabase row and syncs between
+her phone and laptop, with browser localStorage as a cache. The core loop is:
 pick a patient → document a SOAP session in a step wizard → export the note to
-PDF/DOCX for the district/clinic.
+PDF/DOCX/CSV or copy it as text.
 
 ## Commands
 
 - `npm start` — dev server on :3000 (`.claude/launch.json` has a `pt-app` preview config)
 - `CI=true npx react-scripts test --watchAll=false` — unit tests (store, date and wizard-default helpers, and a few screens)
 - `CI=true npm run build` — production build; CI mode treats lint warnings as errors
-- `npm run audit:phone` — with `npm start` running, drives every screen at 360px in
-  headless Edge and fails on sideways scroll, a tap target under 44px, reading text
-  under 14px, a toast covering the wizard's Continue button, or a page error. Screenshots land in `scripts/phone-audit-shots/` (git-ignored).
+- `npm run audit:phone` — with `npm start` running, signs in as the audit account from
+  `.env.audit.local`, drives every screen at 360px in headless Edge, and fails on
+  sideways scroll, a tap target under 44px, reading text under 14px, a toast covering
+  the wizard's Continue button, or a page error. Screenshots land in
+  `scripts/phone-audit-shots/` (git-ignored).
+- `npx supabase db push` — applies `supabase/migrations/` to the linked project
+  (`lzswvpkxzkxwwqvudwfq`). `npx supabase config push` applies `supabase/config.toml`;
+  run `npx supabase config diff` first. In config.toml, `[auth] enable_signup` is
+  sign-up; `[auth.email] enable_signup` is the email provider itself and must stay true.
 
 ## Architecture
 
@@ -31,11 +38,31 @@ PDF/DOCX for the district/clinic.
 - `src/components/AppHeader.js`, `BottomNav.js`, `BackLink.js` — the app shell. Below
   Tailwind's `sm:` (640px) there is a one-line top bar and a bottom tab bar; from
   `sm:` up the nav sits in the top bar.
+- `src/components/CloudSyncProvider.js` — between `AuthGate` and `PatientDataProvider`.
+  After sign-in it picks a load path (`chooseLoadPath` in `src/data/syncLogic.js`) and
+  shows a gate screen until the cache and the `app_data` row agree. Context mutations
+  call `notifyChange()`; a coalescing queue pushes the whole cache 500 ms later with an
+  `updated_at` guard (`src/data/cloud.js`). Realtime, `visibilitychange`, and `online`
+  check for newer rows; screens with unsaved state call `useEditingHold`
+  (`src/context/SyncContext.js`), and every mutation calls `adoptHeldData()` first so a
+  save builds on a held row. The `revision` counter tells the data and profile contexts
+  to reload from the cache.
+- `src/context/AuthContext.js`, `src/components/AuthGate.js` — Supabase session and the
+  login-only routing. `src/data/supabaseClient.js` creates the client lazily.
+- `supabase/migrations/` — the `app_data` table, RLS, the trigger that stamps
+  `updated_at`, and the dashboard views. `api/keep-alive.js` is the daily Vercel cron.
+- `public/service-worker.js` — navigation network-first; it never touches Supabase.
+- Env files (git-ignored): `.env.local` (`REACT_APP_SUPABASE_URL`,
+  `REACT_APP_SUPABASE_PUBLISHABLE_KEY`) and `.env.audit.local` (`AUDIT_EMAIL`,
+  `AUDIT_PASSWORD`, plus the URL, publishable key, and `SUPABASE_SECRET_KEY` for checks).
+  The secret key must never reach `src/`.
 - `package.json` `jest.moduleNameMapper` points React Router 7 at its CommonJS build
   and `setupTests.js` polyfills TextEncoder. Without both, any test that renders a
   router fails to load under CRA's Jest 27.
-- Storage keys: `ptAppData` (schema v1.4), `pt-app-profile` (provider info),
-  `pt-app-meta` (backup timestamps), `ptAppSessionDraft` (wizard draft).
+- Storage keys: `ptAppData` (schema v1.4) and `pt-app-profile` (provider info) are a
+  cache of the cloud row; `ptAppSync` holds `lastSeen`, `dirty`, and `lastSyncedAt`;
+  `pt-app-meta` (backup timestamps) and `ptAppSessionDraft` (wizard draft) stay per
+  device. Sign-out removes the first three.
 
 ## Invariants — do not break these (each guards a fixed data-loss bug)
 
@@ -72,18 +99,25 @@ PDF/DOCX for the district/clinic.
    the 64px tab bar (`bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0`).
    Run `npm run audit:phone` after touching a screen; it must print PASS.
 
+10. **Never push a missing or partial cache, and never edit without the cloud.** The push
+    reads the complete `ptAppData` and skips when it's missing; a failed fetch at load shows
+    the error screen, never the cached data. A mutation must go through `applyData` (or
+    call `notifyChange()`) and call `adoptHeld()` first, or the other device's held change
+    is overwritten.
+
 ## Current state & next work
 
 Bug-fix pass (commit `87b30bd`) plus all four roadmap phases are built:
 backup/restore + drafts + ConfirmModal (Phase 1), copy-forward + last-note peek
 (Phase 2), caseload search/grouping + nav + tablet pass (Phase 3), and schema
-1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 66 passing
+1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 138 passing
 tests; CI build clean.
 
 The mobile pass from `docs/ux-audit-2026-10-28.md` is built (plan:
-`docs/superpowers/plans/mobile-audit-fixes-2026-10-28.md`). Phase 2, Supabase sync and
-the installable Android app, is designed in
-`docs/superpowers/specs/android-cloud-sync-design-2026-10-27.md` and not built yet.
+`docs/superpowers/plans/mobile-audit-fixes-2026-10-28.md`). Phase 2, Supabase sync,
+sign-in, Copy note, CSV, and the installable Android app, is built from
+`docs/superpowers/specs/android-cloud-sync-design-2026-10-27.md` (plan:
+`docs/superpowers/plans/cloud-sync-and-install-2026-10-28.md`).
 
 **[docs/ROADMAP.md](docs/ROADMAP.md)** holds the per-feature specs and
 acceptance criteria for everything above — the reference when modifying these
@@ -91,4 +125,5 @@ features. **[docs/QA-FLOW-AUDIT.md](docs/QA-FLOW-AUDIT.md)** is the
 user-perspective walkthrough of every flow with expected behaviors — use it to
 regression-test after changes and update it when flows change. Additions to session editing must preserve the amendment trail
 (`store.updateSession` snapshots previous content when clinical fields change).
-HIPAA/auth/encryption is explicitly deferred by the owner — do not add it unprompted.
+Sign-in exists because sync needs it. Encryption beyond what Supabase provides and any
+HIPAA work are deferred by the owner — do not add them unprompted.

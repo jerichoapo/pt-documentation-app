@@ -141,8 +141,8 @@ below.
 
 **Keep-alive.** Add a Vercel cron job (free on the Hobby plan at daily
 precision) that calls a small serverless function in the repo, which reads
-one row through the Supabase service-role key. That counts as activity and
-keeps the project from pausing over a summer break. The service-role key
+one row through the Supabase secret key. That counts as activity and
+keeps the project from pausing over a summer break. The secret key
 lives only in Vercel's environment variables, never in the client bundle.
 
 **Who sets it up.** The owner creates the Supabase account and an empty
@@ -219,10 +219,10 @@ reading and for the dashboard's CSV export, and the app never reads them.
 Enable Supabase Realtime on `app_data` so the other device can hear about
 changes.
 
-Secrets: `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_ANON_KEY` come from
+Secrets: `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` come from
 Vercel environment variables in production and `.env.local` in development.
-The anon key is public by design; row-level security is what protects the
-data. `SUPABASE_SERVICE_ROLE_KEY` is set only in Vercel for the keep-alive
+The publishable key is public by design; row-level security is what protects the
+data. `SUPABASE_SECRET_KEY` is set only in Vercel for the keep-alive
 function and never read by the React app. Document all three in the README.
 
 The schema above is the first migration file under `supabase/migrations/`,
@@ -410,10 +410,17 @@ with unit tests. File name `pt-app-notes-YYYY-MM-DD.csv`, or
 
 1. Create a free account at supabase.com and a new project. Pick a US region,
    set a database password, and keep it somewhere safe.
-2. Run `npx supabase login` once in a PowerShell terminal. Node already
-   provides `npx`, so there is nothing to install; the CLI does not support a
-   global `npm install -g`.
-3. Give the designer the project reference (the short id in the project's
-   URL). Everything else runs from the repo.
-4. After the build: open the app on the phone and the laptop, sign in with the
-   password the designer sets, and change it from Settings or the dashboard.
+2. Create her login in the dashboard (**Authentication** > **Users** > **Add
+   user**, with **Auto Confirm User** checked) using a password chosen with her,
+   so the password never passes through the designer. There is no in-app
+   password change; reset it from the same dashboard page.
+3. Approve the Supabase CLI and Vercel CLI sign-ins once (`npx supabase login`
+   and `npx vercel login`). Everything else runs from the repo.
+4. After the build: on the device that holds her current notes, sign in first
+   and upload them. Then sign in on the other device, and on the phone use
+   Chrome's **Add to Home screen**.
+
+Updated 2026-10-28 to match what was done: the owner created the login in the
+dashboard, the designer finished both CLI sign-ins from the repo with the
+owner's approval in Chrome, and the env vars use Supabase's newer key names
+(`REACT_APP_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`).

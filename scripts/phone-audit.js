@@ -1,9 +1,10 @@
 // Phone-width layout audit. Run with the dev server up (`npm start`), then
-// `npm run audit:phone`. Seeds localStorage from phone-audit-seed.json, visits
-// every screen at 360x780 with touch emulation, screenshots each one to
-// scripts/phone-audit-shots/, and exits 1 on horizontal overflow, a tap target
-// under 44px, reading text under 14px, or a page error. Uses the installed Microsoft Edge, so there is
-// no browser download.
+// `npm run audit:phone`. Seeds localStorage from phone-audit-seed.json, signs
+// in as the audit account from .env.audit.local, puts the seed data in that
+// account's cloud row, visits every screen at 360x780 with touch emulation,
+// screenshots each one to scripts/phone-audit-shots/, and exits 1 on
+// horizontal overflow, a tap target under 44px, reading text under 14px, or a
+// page error. Uses the installed Microsoft Edge, so there is no browser download.
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
@@ -11,6 +12,22 @@ const fs = require('fs');
 const BASE = process.env.AUDIT_BASE_URL || 'http://localhost:3000';
 const OUT = path.join(__dirname, 'phone-audit-shots');
 const SEED = JSON.parse(fs.readFileSync(path.join(__dirname, 'phone-audit-seed.json'), 'utf8'));
+
+// The audit account never sees real data: row-level security keeps each
+// account to its own row. See the README for how to create it.
+const readEnvFile = (file) => {
+  try {
+    return Object.fromEntries(fs.readFileSync(file, 'utf8').split(/\r?\n/).filter((line) => line.includes('='))
+      .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+  } catch (error) {
+    return {};
+  }
+};
+const AUDIT_ENV = { ...readEnvFile(path.join(__dirname, '..', '.env.audit.local')), ...process.env };
+if (!AUDIT_ENV.AUDIT_EMAIL || !AUDIT_ENV.AUDIT_PASSWORD) {
+  console.log('Missing AUDIT_EMAIL and AUDIT_PASSWORD. Put them in .env.audit.local (see the README).');
+  process.exit(1);
+}
 const MIN_TARGET = 44;
 const MIN_TEXT_PX = 14;
 
@@ -110,6 +127,25 @@ const check = async (page, name) => {
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(e.message));
+
+  // Sign in, then make the seed data the audit account's cloud data
+  await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
+  await check(page, 'login');
+  await page.fill('#login-email', AUDIT_ENV.AUDIT_EMAIL);
+  await page.fill('#login-password', AUDIT_ENV.AUDIT_PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  const replace = page.getByRole('button', { name: "Replace the cloud data with this device's" });
+  const upload = page.getByRole('button', { name: 'Upload to the cloud' });
+  await replace.or(upload).waitFor({ timeout: 20000 });
+  if (await replace.count()) {
+    await check(page, 'sync-first-device');
+    await replace.click();
+    await page.getByRole('button', { name: 'Replace cloud data' }).click();
+  } else {
+    await check(page, 'sync-migrate');
+    await upload.click();
+  }
+  await page.getByRole('heading', { name: 'Caseload' }).waitFor({ timeout: 20000 });
 
   for (const [name, route] of ROUTES) {
     await page.goto(BASE + route, { waitUntil: 'networkidle' });

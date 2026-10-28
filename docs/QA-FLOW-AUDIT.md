@@ -7,15 +7,20 @@ later flows need.
 
 Written 2026-07-03 against schema v1.4 (all four roadmap phases built). Every
 expected behavior here was verified in a live walkthrough on that date.
-Updated 2026-10-28 for the mobile pass (`docs/ux-audit-2026-10-28.md`).
+Updated 2026-10-28 for the mobile pass (`docs/ux-audit-2026-10-28.md`) and for
+phase 2: sign-in, sync between devices, Copy note, CSV, and the Android install.
 
 ## Environment setup
 
 - Run `npm start` and open http://localhost:3000 in Chrome (desktop size).
-- **Fresh start:** DevTools → Application → Local Storage → delete the keys
-  `ptAppData`, `pt-app-profile`, `pt-app-meta`, `ptAppSessionDraft`, and Session
-  Storage key `ptAppBackupNudgeDismissed`. Reload.
-- All data is local to this browser profile. There is no login.
+- Sign in with the audit account from `.env.audit.local`, never with the real
+  account: these flows add and delete data.
+- **Fresh start:** empty the audit account's cloud row (Supabase dashboard →
+  Table Editor → `app_data` → delete the audit user's row), then sign out, which
+  clears the local copy. Also delete `pt-app-meta` and `ptAppSessionDraft` from
+  Local Storage and `ptAppBackupNudgeDismissed` from Session Storage. Sign in.
+- Data lives in the cloud row; the browser keeps a copy. Flows 11 and 12 need a
+  second browser profile (or a second device) signed in to the same account.
 
 ## Global conventions (check these throughout, not once)
 
@@ -32,7 +37,8 @@ Updated 2026-10-28 for the mobile pass (`docs/ux-audit-2026-10-28.md`).
 - [ ] Clearing a date field never crashes the page; the field snaps back to its
       previous value.
 - [ ] Reloading the browser at any point never loses saved data and never shows
-      a "Data corruption" error.
+      a "Data corruption" error. Each reload shows "Loading your caseload…"
+      briefly, then the page.
 - [ ] On a laptop the top bar reads "Pediatric Therapy Notes" with Home · Patients
       · Schools · Settings (gear icon) · "+ Add Patient", and the current page's
       link is blue. On a phone (under 640px) the top bar reads "PT Notes" only,
@@ -41,9 +47,25 @@ Updated 2026-10-28 for the mobile pass (`docs/ux-audit-2026-10-28.md`).
 
 ---
 
+## 0. Signing in
+
+1. Signed out, open any address, for example /patients/p1.
+- [ ] The sign-in screen ("PT Notes", Email, Password, Sign in) appears and the
+      address becomes /login. No other page is reachable.
+2. Sign in with a wrong password.
+- [ ] "Email or password is incorrect." appears under the fields.
+3. Sign in correctly.
+- [ ] The app opens on Home. Reloading keeps you signed in.
+4. Settings → Account.
+- [ ] Shows "Signed in as {email}" and "Last synced just now" (or minutes ago).
+5. Sign out.
+- [ ] Back on the sign-in screen. In DevTools, `ptAppData`, `pt-app-profile`,
+      and `ptAppSync` are gone.
+
 ## 1. First launch (empty app)
 
-1. Fresh start (see setup), land on Home.
+1. Fresh start (see setup), land on Home. An empty cloud row and an empty
+   device go straight to Home with no question.
 - [ ] A blue banner asks me to add provider info ("exported notes are signed")
       with a "Set up profile" link → goes to the profile form.
 - [ ] No amber backup banner yet (there are no patients).
@@ -286,6 +308,18 @@ After the edit in 7a-3:
 3. On the patient profile, "Download All Notes".
 - [ ] One combined file with each note on its own page, named
       `Notes_{Name}_All_Sessions.*`.
+4. In the same dialog choose "Spreadsheet (CSV)".
+- [ ] `pt-app-notes-{last}-{first}-YYYY-MM-DD.csv` downloads. In Google Sheets
+      (File → Import) it shows one row per note, newest first, with the columns
+      from the design doc; multi-line text stays in one cell; deleted notes are
+      missing.
+
+### 7d. Copy note
+1. On a note, tap Copy.
+- [ ] "Note copied" toast. Pasted into an email or a Sheets cell: patient name,
+      date of service, time, TherEx/TherAct, goals, the four SOAP headings with
+      their text and the categories line, provider, license, the amendment line
+      for an amended note, and "Electronically signed" last.
 
 ## 8. Recently Deleted (trash)
 
@@ -351,6 +385,8 @@ Reach it via Settings → Recently Deleted, or the link under the Patients list.
 - [ ] "That file is not a valid PT App backup." toast; existing data untouched.
 5. Reload after all of this.
 - [ ] Everything persists exactly; no errors.
+6. "Export all notes (CSV)".
+- [ ] `pt-app-notes-YYYY-MM-DD.csv` downloads with every active note.
 
 ## 10. Phone & tablet layout
 
@@ -362,8 +398,9 @@ toolbar. At **360–375px** (phone):
       bar is always visible.
 - [ ] Every button, link, and input is at least 44px tall; back links read
       "Back".
-- [ ] On a note, Download / Edit / Delete fit in one row and all three work;
-      in edit mode the date and times stack instead of running off screen.
+- [ ] On a note, Copy / Download / Edit share a row with Delete on its own row
+      below, and all four work; in edit mode the date and times stack instead
+      of running off screen.
 - [ ] Patients, Schools, and Recently Deleted show stacked CARDS instead of
       tables, with comfortably large tap targets (school edit/delete ≈44px).
 - [ ] In the wizard, the step indicator shows five circles with "Step N of 5"
@@ -375,13 +412,62 @@ At **768px** (tablet):
       the wizard; the nav moves to the top bar and the tab bar is gone (from
       640px); still no sideways scroll on any page.
 
+## 11. Moving to the cloud (first sign-in on a device with data)
+
+1. With the audit row empty, put data on the device first: sign out, then in
+   DevTools set `ptAppData` to a backup file's contents. Sign in.
+- [ ] "Move this device's data to the cloud" shows "{N} patients, {N} notes,
+      {N} schools on this device" and an "Upload to the cloud" button. Nothing
+      else is reachable.
+- [ ] Upload opens Home with the same data.
+2. On a second profile that has different data of its own, sign in.
+- [ ] "This device has its own data" shows "This device: … Cloud: …" with
+      "Keep the cloud data" and "Replace the cloud data with this device's".
+- [ ] Keep downloads a backup of the device's data first, then shows the cloud
+      data. Replace asks again with both counts before replacing.
+
+## 12. Two devices
+
+Sign in on both profiles (a phone-width window and a laptop-width one).
+1. Save a note on the phone.
+- [ ] Within a few seconds the laptop shows "Updated from your other device"
+      and the note.
+2. Open a patient's Edit form on the laptop and type in Diagnosis. Change
+   something on the phone.
+- [ ] The laptop form keeps what you typed and shows no message. Saving it
+      keeps both changes, and the phone then updates.
+3. On the phone, turn the network off (DevTools → Network → Offline) and save a
+   change.
+- [ ] After a few seconds a red banner reads "Changes not saved to the cloud.
+      Check your connection." with Retry. Turning the network back on clears it
+      and the laptop updates.
+4. Offline again on the phone, save a change, close the tab. Save a different
+   change on the laptop. Reopen the phone with the network on.
+- [ ] "Some changes didn't reach the cloud" offers "Download this device's
+      data" and "Continue with the cloud data"; continuing shows the laptop's
+      change.
+5. Block the Supabase address (DevTools → Network request blocking →
+   `*.supabase.co`) and reload.
+- [ ] "Can't reach your data" with Try again and Sign out; never an empty
+      caseload. Unblock and Try again opens Home.
+
+## 13. Installing on Android
+
+On the phone, open the live site in Chrome.
+- [ ] Chrome offers "Add to Home screen" (or "Install app") from the menu.
+- [ ] The PT Notes icon launches the app full screen, with no address bar.
+- [ ] After a new deploy, closing and reopening the app shows the new version.
+
 ---
 
 ## Known & intentional behaviors (do not file as bugs)
 
-- All data lives in this browser only; there is no login, sync, or server.
-  The backup file is the recovery mechanism. (HIPAA hardening is explicitly
-  out of scope by owner decision.)
+- Data lives in one Supabase row; each browser keeps a copy that the cloud
+  replaces on every load. Encryption beyond Supabase's and HIPAA hardening are
+  out of scope by owner decision.
+- Last write wins between devices. A change made on one device while the other
+  had an unsent change shows the backup offer; the app never merges the two.
+- The wizard draft stays on the device where it was typed; it does not sync.
 - Only ONE unsaved wizard draft exists at a time; typing in patient B's wizard
   replaces patient A's unsaved draft without warning.
 - "Restore note only" for a deleted patient intentionally leaves the note

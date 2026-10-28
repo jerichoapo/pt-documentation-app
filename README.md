@@ -1,12 +1,13 @@
 # PT App — Pediatric Therapy Notes
 
-A local-first documentation app for a school-based pediatric physical therapist.
-Pick a student, document a SOAP session in a guided wizard, and export a signed
-note to PDF or DOCX for the district or clinic. All data lives in the browser's
-localStorage — there is no backend, no login, and nothing leaves the device.
+A documentation app for a school-based pediatric physical therapist. Pick a
+student, document a SOAP session in a guided wizard, and export a signed note to
+PDF or DOCX for the district or clinic. One person signs in with email and
+password, and her patients and notes sync between her phone and laptop through
+a Supabase database.
 
-**Live app:** https://pt-app-zeta.vercel.app (only the app code is hosted —
-your data never touches the server; see [Data & privacy](#data--privacy)).
+**Live app:** https://pt-app-zeta.vercel.app (sign-in required; see
+[Data & privacy](#data--privacy)).
 
 ## Features
 
@@ -15,6 +16,14 @@ your data never touches the server; see [Data & privacy](#data--privacy)).
   Skills, Therapeutic Activities, Transfers & Positioning, Classroom Mobility).
   Completeness (all four sections + at least one category) is enforced before a
   note can be saved.
+- **Sync between devices** — a note saved on the phone shows on the laptop
+  within seconds, with an "Updated from your other device" message. While a form
+  or the wizard is open, changes from the other device wait until it closes.
+- **Installs on Android** — open the site in Chrome, then Add to Home screen. It
+  launches full screen from its own icon.
+- **Copy note** — puts the whole note on the clipboard as plain text.
+- **CSV export** — every note, or one patient's notes, as a spreadsheet that
+  opens in Google Sheets (Settings, or a patient's Download All Notes).
 - **Copy-forward & last-note peek** — start a new note prefilled from the last
   session, and glance at the previous note's text per SOAP step while writing.
 - **Draft autosave** — get interrupted mid-note and the wizard offers to resume
@@ -41,6 +50,24 @@ your data never touches the server; see [Data & privacy](#data--privacy)).
 
 ## Getting started
 
+The app needs a Supabase project to sign in to. To set one up for your own copy:
+
+1. Create a free project at supabase.com.
+2. From this folder, run `npx supabase login`, then
+   `npx supabase link --project-ref <your-project-ref>` and
+   `npx supabase db push` to create the table, its access rules, and the views.
+   `npx supabase config push` turns public sign-up off.
+3. Create your login in the Supabase dashboard under **Authentication** >
+   **Users** > **Add user**, with **Auto Confirm User** checked.
+4. Put the project URL and publishable key in `.env.local`:
+
+   ```
+   REACT_APP_SUPABASE_URL=https://<your-project-ref>.supabase.co
+   REACT_APP_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+   ```
+
+Then:
+
 ```bash
 npm install
 npm start          # dev server on http://localhost:3000
@@ -49,39 +76,50 @@ npm start          # dev server on http://localhost:3000
 Other commands:
 
 ```bash
-CI=true npx react-scripts test --watchAll=false   # unit tests (66 tests)
+CI=true npx react-scripts test --watchAll=false   # unit tests (138 tests)
 CI=true npm run build                             # production build; CI mode fails on lint warnings
 npm run audit:phone                               # with npm start running: phone-width layout check
 ```
 
+`npm run audit:phone` signs in as a separate test account so it never touches
+real data. Put that account in `.env.audit.local` (git-ignored):
+
+```
+AUDIT_EMAIL=audit@pt-app.test
+AUDIT_PASSWORD=...
+```
+
 ## Data & privacy
 
-**Where data lives:** everything (patients, notes, drafts, provider profile) is
-stored in the browser's localStorage on the device you're using, under the keys
-`ptAppData` (schema v1.4), `pt-app-profile`, `pt-app-meta`, and
-`ptAppSessionDraft`. The Vercel deployment serves only static app code — the
-app makes no network calls after loading, so nothing you type ever reaches a
-server. Exports (PDF/DOCX) and backups (JSON) are generated on-device and only
-become shareable files when you save them somewhere.
+**Where data lives:** patients, notes, schools, and the provider profile live in
+one row of the `app_data` table in the owner's Supabase project, as one JSON
+document per user. Row-level security lets a signed-in user read and write only
+their own row; public sign-up is off. The dashboard's `notes_view`,
+`patients_view`, and `schools_view` show the data as rows and download as CSV.
 
-**What that means in practice:**
+**On each device:** the browser keeps a copy in localStorage (`ptAppData`,
+`pt-app-profile`, and `ptAppSync` for sync bookkeeping) so the app opens
+quickly. That copy is replaced from the cloud on every load, and signing out
+removes it. The wizard draft (`ptAppSessionDraft`) and backup timestamps
+(`pt-app-meta`) stay on the device and don't sync.
 
-- **Every browser is a separate silo.** Notes typed in Chrome don't exist in
-  Safari, and phone data ≠ laptop data. There is no sync; the backup file
-  (Settings → Your Data → Download/Import Backup) is the only way to move data,
-  and importing is a wholesale replace, not a merge. Pick one primary device.
-- **On iPhone/iPad, "Add to Home Screen" gets its own storage container**,
-  separate from regular Safari tabs. Use the home-screen icon from day one —
-  it's also exempt from iOS Safari's ~7-day storage eviction for sites you
-  haven't visited, which can otherwise silently delete localStorage.
-- **Clearing browser data deletes everything** ("Clear History and Website
-  Data" on iOS, clearing site data in any browser, or deleting the home-screen
-  icon). There is no server copy to recover from — download a backup regularly;
-  the app nudges you after 7 days without one.
+**How sync behaves:**
 
-The app has no authentication or encryption of its own (a deliberate scope
-decision for a single-user tool); rely on device-level protections such as OS
-login and disk encryption.
+- Every change is sent within half a second. If it can't be sent, a banner says
+  so and a Retry button sends it again; the change is kept on the device.
+- If one device has a change that never reached the cloud and the other device
+  saved since, the app shows the cloud version and offers to download this
+  device's data first.
+- If the database can't be reached when the app opens, the app shows an error
+  with Try again rather than an empty caseload.
+- The first sign-in on a device that already has data asks before anything is
+  replaced.
+
+Supabase pauses a free project after seven days without activity. A Vercel cron
+job (`api/keep-alive.js`, daily) reads the table so that never happens. The
+secret key it uses lives only in Vercel's environment variables.
+
+The app adds no encryption beyond what Supabase provides.
 
 Old data is upgraded automatically — `loadFromStorage` walks a 1.0 → 1.4 migration
 chain rather than rejecting anything it doesn't recognise.
@@ -92,19 +130,29 @@ chain rather than rejecting anything it doesn't recognise.
   `{version, patients, sessions, schools}` object and returns a new one, so
   persistence always writes a complete shape.
 - `src/context/PatientDataContext.js` — React provider over the store.
+- `src/components/CloudSyncProvider.js` — moves data between the localStorage
+  cache and the Supabase row: the load paths, the push after every change, and
+  Realtime updates. `src/data/syncLogic.js` holds its pure decisions.
+- `src/context/AuthContext.js` and `src/components/AuthGate.js` — sign-in and
+  the login-only routing.
 - `src/screens/*` — one file per route; the route table is in `src/App.js`.
 - `src/utils/sessionFormatting.js` — dates are plain local `'YYYY-MM-DD'` strings
   end to end, with no UTC conversion anywhere.
-- `src/utils/exportNotes.js` — the PDF and DOCX builders.
+- `src/utils/noteContent.js` — what every export shows; `exportNotes.js` (PDF and
+  DOCX), `noteText.js` (Copy note), and `notesCsv.js` (CSV) build on it.
+- `supabase/` — the database schema as migrations, and the project settings.
 
 Built with Create React App (react-scripts 5), React 19, react-router v7,
-Tailwind CSS 3, lucide-react icons, pdfmake, and docx.
+Tailwind CSS 3, lucide-react icons, pdfmake, docx, and supabase-js.
 
 ## Deployment
 
-Hosted on Vercel as a static build. [vercel.json](vercel.json) rewrites non-asset
-paths to `index.html` so react-router deep links survive a refresh.
-
+Hosted on Vercel. [vercel.json](vercel.json) rewrites non-asset paths to
+`index.html` so react-router deep links survive a refresh, and schedules the
+daily keep-alive. Vercel needs three environment variables:
+`REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` (public by
+design; row-level security protects the data) and `SUPABASE_SECRET_KEY` (for the
+keep-alive only, never sent to the browser).
 
 ## Disclaimer
 
