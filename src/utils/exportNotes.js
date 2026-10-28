@@ -3,7 +3,7 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
-import { parseAppDate } from './sessionFormatting';
+import { buildNoteContent, getObjectiveCategoryLabels } from './noteContent';
 
 // Initialize pdfMake with fonts
 if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
@@ -12,90 +12,15 @@ if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
   pdfMake.vfs = pdfFonts.default.pdfMake.vfs;
 }
 
-// Helper function to format SOAP note content
-const formatSOAPContent = (session, patient, provider) => {
-  const sessionDate = parseAppDate(session.sessionDate).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  const timeRange = session.startTime && session.endTime
-    ? `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
-    : 'N/A';
-
-  const providerName = provider ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim() : 'N/A';
-  const credentials = provider?.credentials ? `, ${provider.credentials.join(', ')}` : '';
-  const licenseNumber = provider?.license ? `License Number: ${provider.license}` : '';
-  const signatureName = providerName !== 'N/A' ? providerName : '';
-
-  const formatExportDate = (value) => parseAppDate(value).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  const goals = (patient.goals || []).filter(g => g.status === 'active');
-
-  const amendmentNote = (session.amendments || []).length > 0
-    ? `Amendment history: originally documented ${session.createdAt ? formatExportDate(session.createdAt) : 'earlier'}; amended ${session.amendments.map(a => formatExportDate(a.amendedAt)).join(', ')}.`
-    : '';
-
-  return {
-    patientName: `${patient.firstName} ${patient.lastName}`,
-    sessionDate,
-    timeRange,
-    therExMinutes: session.therExMinutes || 0,
-    therActMinutes: session.therActMinutes || 0,
-    subjective: session.subjective || 'N/A',
-    objective: {
-      categories: session.objectiveCategories || {},
-      notes: session.objectiveNotes || 'N/A'
-    },
-    assessment: session.assessment || 'N/A',
-    plan: session.plan || 'N/A',
-    goals,
-    amendmentNote,
-    providerName: `${providerName}${credentials}`,
-    signatureName,
-    licenseNumber
-  };
-};
-
-// Helper function to format time
-const formatTime = (timeString) => {
-  if (!timeString) return 'N/A';
-  const [hours, minutes] = timeString.split(':');
-  const hour = parseInt(hours, 10);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes} ${ampm}`;
-};
-
-// Helper function to get objective categories text
+// "Objective Categories: A, B" plus the given line breaks, or '' when none
 const getObjectiveCategoriesText = (categories, lineBreaks = '\n\n') => {
-  if (!categories || Object.values(categories).every(val => !val)) {
-    return '';
-  }
-
-  const categoryLabels = {
-    balance: 'Balance & Coordination',
-    motorSkills: 'Gross Motor Skills',
-    therapeuticActivities: 'Therapeutic Activities',
-    transfers: 'Transfers & Positioning',
-    classroomMobility: 'Classroom Mobility'
-  };
-
-  const activeCategories = Object.entries(categories)
-    .filter(([key, isSelected]) => isSelected)
-    .map(([key]) => categoryLabels[key] || key);
-
-  return activeCategories.length > 0 ? `Objective Categories: ${activeCategories.join(', ')}${lineBreaks}` : '';
+  const labels = getObjectiveCategoryLabels(categories);
+  return labels.length > 0 ? `Objective Categories: ${labels.join(', ')}${lineBreaks}` : '';
 };
 
 // PDF Export Functions
 export const exportSingleNoteToPDF = async (session, patient, provider) => {
-  const content = formatSOAPContent(session, patient, provider);
+  const content = buildNoteContent(session, patient, provider);
 
   const docDefinition = {
     pageSize: 'LETTER',
@@ -267,12 +192,12 @@ export const exportSingleNoteToPDF = async (session, patient, provider) => {
 };
 
 export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
-  const content = formatSOAPContent(sessions[0], patient, provider);
+  const content = buildNoteContent(sessions[0], patient, provider);
 
   const docContent = [];
 
   sessions.forEach((session, index) => {
-    const sessionContent = formatSOAPContent(session, patient, provider);
+    const sessionContent = buildNoteContent(session, patient, provider);
 
     if (index > 0) {
       // Add page break between sessions
@@ -454,7 +379,7 @@ export const exportBulkNotesToPDF = async (sessions, patient, provider) => {
 
 // DOCX Export Functions
 export const exportSingleNoteToDOCX = async (session, patient, provider) => {
-  const content = formatSOAPContent(session, patient, provider);
+  const content = buildNoteContent(session, patient, provider);
 
   const children = [];
 
@@ -698,12 +623,12 @@ export const exportSingleNoteToDOCX = async (session, patient, provider) => {
 };
 
 export const exportBulkNotesToDOCX = async (sessions, patient, provider) => {
-  const content = formatSOAPContent(sessions[0], patient, provider);
+  const content = buildNoteContent(sessions[0], patient, provider);
 
   const children = [];
 
   sessions.forEach((session, index) => {
-    const sessionContent = formatSOAPContent(session, patient, provider);
+    const sessionContent = buildNoteContent(session, patient, provider);
 
     if (index > 0) {
       // Add page break between sessions

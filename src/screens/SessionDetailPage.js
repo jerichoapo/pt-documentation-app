@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Calendar, Clock, Edit2, Save, X, Trash2, Download, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { Calendar, Clock, Edit2, Save, X, Trash2, Download, ChevronDown, ChevronUp, History, Copy } from 'lucide-react';
 import { useSession, usePatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
@@ -8,6 +8,8 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useEditingHold } from '../context/SyncContext';
 import { formatMediumDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
 import { exportSingleNoteToPDF, exportSingleNoteToDOCX } from '../utils/exportNotes';
+import { formatNoteAsText } from '../utils/noteText';
+import { copyText } from '../utils/clipboard';
 import ExportFormatModal from '../components/ExportFormatModal';
 import BackLink from '../components/BackLink';
 
@@ -141,6 +143,11 @@ const SessionDetailPage = () => {
     }
   };
 
+  const handleCopyNote = async () => {
+    const copied = await copyText(formatNoteAsText(session, patient, profile));
+    addToast(copied ? 'Note copied' : "Couldn't copy the note", copied ? 'success' : 'error');
+  };
+
   if (!session) {
     return (
       <div className="max-w-4xl mx-auto text-center py-12">
@@ -179,6 +186,14 @@ const SessionDetailPage = () => {
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {!isEditing ? (
             <>
+              <button
+                onClick={handleCopyNote}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 min-h-[44px] bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                <Copy size={16} />
+                <span className="sm:hidden">Copy</span>
+                <span className="hidden sm:inline">Copy Note</span>
+              </button>
               <button
                 onClick={() => setIsExportModalOpen(true)}
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-2 min-h-[44px] bg-green-100 text-green-700 px-4 rounded-lg hover:bg-green-200 font-medium"
