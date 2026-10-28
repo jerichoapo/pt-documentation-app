@@ -17,7 +17,7 @@ const danger = 'w-full min-h-[44px] px-4 rounded-lg bg-red-100 text-red-700 font
 
 // The screens shown instead of the app while the cloud copy and this
 // device's copy are being reconciled.
-const SyncScreens = ({ gate, isWorking, onRetry, onSignOut, onUpload, onKeepCloud, onReplaceCloud, onDownloadDevice, onContinueWithCloud }) => {
+const SyncScreens = ({ gate, isWorking, onRetry, onSignOut, onUpload, onKeepCloud, onReplaceCloud, onDownloadDevice, onContinueWithCloud, onDownloadUnreadable, onContinuePastUnreadable }) => {
   if (gate.kind === 'loading') {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -78,6 +78,24 @@ const SyncScreens = ({ gate, isWorking, onRetry, onSignOut, onUpload, onKeepClou
           <button onClick={onReplaceCloud} disabled={isWorking} className={danger}>
             Replace the cloud data with this device's
           </button>
+        </div>
+      </Card>
+    );
+  }
+
+  if (gate.kind === 'unreadable') {
+    return (
+      <Card title="This device's saved data can't be read">
+        <p className="text-sm text-gray-700 mb-3">
+          The copy of your data on this device is damaged, so the app will use the cloud data
+          instead.
+        </p>
+        <p className="text-sm text-gray-600 mb-6">
+          To keep the damaged copy for recovery, download it first.
+        </p>
+        <div className="space-y-3">
+          <button onClick={onDownloadUnreadable} className={secondary}>Download it</button>
+          <button onClick={onContinuePastUnreadable} className={primary}>Continue with the cloud data</button>
         </div>
       </Card>
     );

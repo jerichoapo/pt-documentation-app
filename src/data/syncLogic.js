@@ -46,10 +46,27 @@ export const unsavedWorkWarning = () => {
   return losses.length ? `${losses.join(' ')} If you sign out now, that work is lost.` : null;
 };
 
-export const readLocalSnapshot = () => ({
-  data: parse(localStorage.getItem(DATA_KEY)),
-  profile: parse(localStorage.getItem(PROFILE_KEY))
-});
+const isCompleteData = (data) =>
+  Boolean(data) && typeof data === 'object' && Array.isArray(data.patients) && Array.isArray(data.sessions);
+
+// The cache as stored. Data that exists but can't be parsed, or lacks the
+// patient and note arrays, is flagged unreadable and kept as raw text so it
+// can be offered for download; it is never pushed.
+export const readLocalSnapshot = () => {
+  const dataRaw = localStorage.getItem(DATA_KEY);
+  const profileRaw = localStorage.getItem(PROFILE_KEY);
+  const data = parse(dataRaw);
+  const profile = parse(profileRaw);
+  const dataUnreadable = dataRaw !== null && !isCompleteData(data);
+  const profileUnreadable = profileRaw !== null && (!profile || typeof profile !== 'object');
+  return {
+    data: dataUnreadable ? null : data,
+    profile: profileUnreadable ? null : profile,
+    dataRaw,
+    dataUnreadable,
+    profileUnreadable
+  };
+};
 
 const active = (items) => (Array.isArray(items) ? items.filter((item) => !item.deleted_at).length : 0);
 
@@ -65,7 +82,8 @@ export const hasLocalData = ({ data, profile }) => {
   return Boolean(profile && (profile.firstName || profile.lastName || profile.license));
 };
 
-export const chooseLoadPath = ({ row, localHasData, dirty, lastSeen }) => {
+export const chooseLoadPath = ({ row, localHasData, dirty, lastSeen, localUnreadable = false }) => {
+  if (localUnreadable) return 'unreadable-cache';
   if (!row) return localHasData ? 'migrate' : 'create-empty';
   if (!lastSeen) return localHasData ? 'first-device' : 'apply-row';
   if (dirty) return row.updated_at === lastSeen ? 'push-cache' : 'conflict';

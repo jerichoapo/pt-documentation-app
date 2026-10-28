@@ -116,12 +116,12 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
 
   pushRef.current = async () => {
     if (gateKindRef.current !== 'ready') return;
-    const { data, profile } = readLocalSnapshot();
+    const { data, profile, profileUnreadable } = readLocalSnapshot();
     if (!data) return;
     const sentChange = changeCountRef.current;
     pushInFlightRef.current = true;
     try {
-      const updatedAt = await updateRow(userId, data, profile, readSyncMeta().lastSeen);
+      const updatedAt = await updateRow(userId, data, profileUnreadable ? undefined : profile, readSyncMeta().lastSeen);
       if (updatedAt === null) {
         await showConflictWithFreshRow();
         return;
@@ -204,6 +204,15 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     };
   }, [updateStatus]);
 
+  // An empty row and an empty cache, for a device with nothing to keep
+  const startFresh = useCallback(async () => {
+    const data = emptyData();
+    const updatedAt = await insertRow(userId, data, {});
+    writeCache(data, {});
+    recordSynced(updatedAt, { dirty: false });
+    showGate({ kind: 'ready' });
+  }, [userId, recordSynced, showGate]);
+
   const load = useCallback(async () => {
     showGate({ kind: 'loading' });
     let row;
@@ -220,16 +229,15 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
       row,
       localHasData: hasLocalData(snapshot),
       dirty: meta.dirty,
-      lastSeen: meta.lastSeen
+      lastSeen: meta.lastSeen,
+      localUnreadable: snapshot.dataUnreadable
     });
 
     try {
-      if (path === 'create-empty') {
-        const data = emptyData();
-        const updatedAt = await insertRow(userId, data, {});
-        writeCache(data, {});
-        recordSynced(updatedAt, { dirty: false });
-        showGate({ kind: 'ready' });
+      if (path === 'unreadable-cache') {
+        showGate({ kind: 'unreadable', row });
+      } else if (path === 'create-empty') {
+        await startFresh();
       } else if (path === 'migrate') {
         showGate({ kind: 'migrate', counts: countData(snapshot.data) });
       } else if (path === 'first-device') {
@@ -237,7 +245,8 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
       } else if (path === 'conflict') {
         showGate({ kind: 'conflict', row });
       } else if (path === 'push-cache') {
-        const updatedAt = await updateRow(userId, snapshot.data, snapshot.profile, meta.lastSeen);
+        const profile = snapshot.profileUnreadable ? undefined : snapshot.profile;
+        const updatedAt = await updateRow(userId, snapshot.data, profile, meta.lastSeen);
         if (updatedAt === null) {
           await showConflictWithFreshRow();
           return;
@@ -251,7 +260,7 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     } catch (error) {
       showGate({ kind: 'error' });
     }
-  }, [userId, applyRow, recordSynced, showGate, showConflictWithFreshRow]);
+  }, [userId, applyRow, recordSynced, showGate, showConflictWithFreshRow, startFresh]);
 
   useEffect(() => {
     // StrictMode runs effects twice in development; load once per user
@@ -270,6 +279,25 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     window.addEventListener('online', retryPush);
     return () => window.removeEventListener('online', retryPush);
   }, [status, retryPush]);
+
+  const downloadUnreadableData = () => {
+    downloadTextFile(`pt-app-unreadable-data-${todayStamp()}.txt`, readLocalSnapshot().dataRaw || '', 'text/plain');
+  };
+
+  // The device's copy can't be read, so the cloud copy (or a fresh start)
+  // replaces it
+  const continuePastUnreadable = async () => {
+    try {
+      if (gate.row) {
+        applyRow(gate.row);
+        showGate({ kind: 'ready' });
+      } else {
+        await startFresh();
+      }
+    } catch (error) {
+      showGate({ kind: 'error' });
+    }
+  };
 
   const downloadDeviceBackup = () => {
     const { data } = readLocalSnapshot();
@@ -455,6 +483,8 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
         onReplaceCloud={replaceCloud}
         onDownloadDevice={downloadDeviceBackup}
         onContinueWithCloud={continueWithCloud}
+        onDownloadUnreadable={downloadUnreadableData}
+        onContinuePastUnreadable={continuePastUnreadable}
       />
     );
   }

@@ -44,10 +44,30 @@ describe('sync meta and the local cache', () => {
     expect(localStorage.getItem('ptAppSessionDraft')).toBeNull();
   });
 
-  test('readLocalSnapshot parses both keys and returns null for missing or broken ones', () => {
-    localStorage.setItem('ptAppData', JSON.stringify({ patients: [] }));
+  test('readLocalSnapshot parses both keys', () => {
+    const data = { patients: [], sessions: [], schools: [] };
+    localStorage.setItem('ptAppData', JSON.stringify(data));
+    localStorage.setItem('pt-app-profile', JSON.stringify({ firstName: 'Jordan' }));
+    expect(readLocalSnapshot()).toMatchObject({ data, profile: { firstName: 'Jordan' }, dataUnreadable: false, profileUnreadable: false });
+  });
+
+  test('readLocalSnapshot flags data that does not parse and keeps the raw text', () => {
+    localStorage.setItem('ptAppData', '{not json');
+    expect(readLocalSnapshot()).toMatchObject({ data: null, dataRaw: '{not json', dataUnreadable: true });
+  });
+
+  test('readLocalSnapshot flags data without patient and note arrays', () => {
+    localStorage.setItem('ptAppData', JSON.stringify({ patients: 'x' }));
+    expect(readLocalSnapshot()).toMatchObject({ data: null, dataUnreadable: true });
+  });
+
+  test('readLocalSnapshot flags a profile that does not parse', () => {
     localStorage.setItem('pt-app-profile', '{not json');
-    expect(readLocalSnapshot()).toEqual({ data: { patients: [] }, profile: null });
+    expect(readLocalSnapshot()).toMatchObject({ profile: null, profileUnreadable: true });
+  });
+
+  test('readLocalSnapshot does not flag missing keys', () => {
+    expect(readLocalSnapshot()).toMatchObject({ data: null, profile: null, dataUnreadable: false, profileUnreadable: false });
   });
 });
 
@@ -94,7 +114,9 @@ describe('chooseLoadPath', () => {
     ['row, never synced here, no local data', { row, localHasData: false, dirty: false, lastSeen: null }, 'apply-row'],
     ['row unchanged since an unpushed save', { row, localHasData: true, dirty: true, lastSeen: 't2' }, 'push-cache'],
     ['row changed since an unpushed save', { row, localHasData: true, dirty: true, lastSeen: 't1' }, 'conflict'],
-    ['row and a clean cache', { row, localHasData: true, dirty: false, lastSeen: 't1' }, 'apply-row']
+    ['row and a clean cache', { row, localHasData: true, dirty: false, lastSeen: 't1' }, 'apply-row'],
+    ['unreadable dirty cache with a row', { row, localHasData: false, dirty: true, lastSeen: 't2', localUnreadable: true }, 'unreadable-cache'],
+    ['unreadable clean cache with no row', { row: null, localHasData: false, dirty: false, lastSeen: null, localUnreadable: true }, 'unreadable-cache']
   ])('%s', (_, input, expected) => {
     expect(chooseLoadPath(input)).toBe(expected);
   });

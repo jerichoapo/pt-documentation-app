@@ -4,6 +4,10 @@ import { getSupabase } from './supabaseClient';
 
 const TABLE = 'app_data';
 
+// The columns to write. An undefined profile leaves the cloud profile as it
+// is (the device's copy couldn't be read); null or missing writes {}.
+const changes = (data, profile) => (profile === undefined ? { data } : { data, profile: profile || {} });
+
 const check = ({ data, error }) => {
   if (error) throw error;
   return data;
@@ -32,7 +36,7 @@ export const insertRow = async (userId, data, profile) => {
 export const updateRow = async (userId, data, profile, expectedUpdatedAt) => {
   const rows = check(await getSupabase()
     .from(TABLE)
-    .update({ data, profile: profile || {} })
+    .update(changes(data, profile))
     .eq('user_id', userId)
     .eq('updated_at', expectedUpdatedAt)
     .select('updated_at'));
@@ -43,7 +47,7 @@ export const updateRow = async (userId, data, profile, expectedUpdatedAt) => {
 export const replaceRow = async (userId, data, profile) => {
   const rows = check(await getSupabase()
     .from(TABLE)
-    .update({ data, profile: profile || {} })
+    .update(changes(data, profile))
     .eq('user_id', userId)
     .select('updated_at'));
   if (!rows.length) throw new Error('ROW_MISSING');

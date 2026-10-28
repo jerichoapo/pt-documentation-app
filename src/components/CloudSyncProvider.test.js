@@ -341,3 +341,45 @@ describe('review fixes', () => {
     expect(screen.getByText('Changes not saved to the cloud. Check your connection.')).toBeInTheDocument();
   });
 });
+
+describe('a cache that cannot be read', () => {
+  const download = require('../utils/download');
+
+  test('an unreadable unsent copy is offered for download, never pushed, then the cloud wins', async () => {
+    const save = jest.spyOn(download, 'downloadTextFile').mockImplementation(() => {});
+    localStorage.setItem('ptAppData', '{not json');
+    localStorage.setItem('ptAppSync', JSON.stringify({ lastSeen: 't1', dirty: true }));
+    fetchRow.mockResolvedValue(cloudRow('t1'));
+    renderProvider();
+
+    expect(await screen.findByText("This device's saved data can't be read")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download it' }));
+    expect(save).toHaveBeenCalledWith(expect.stringMatching(/^pt-app-unreadable-data-.*\.txt$/), '{not json', 'text/plain');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with the cloud data' }));
+    expect(await screen.findByText('the app')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('ptAppData'))).toEqual(cloudData);
+    expect(updateRow).not.toHaveBeenCalled();
+    save.mockRestore();
+  });
+
+  test('with no cloud row, Continue starts fresh', async () => {
+    localStorage.setItem('ptAppData', JSON.stringify({ patients: 'x' }));
+    fetchRow.mockResolvedValue(null);
+    insertRow.mockResolvedValue('t1');
+    renderProvider();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue with the cloud data' }));
+    expect(await screen.findByText('the app')).toBeInTheDocument();
+    expect(insertRow).toHaveBeenCalledWith('u1', expect.objectContaining({ patients: [], sessions: [] }), {});
+  });
+
+  test('an unreadable profile is left out of the push instead of erasing the cloud profile', async () => {
+    await readyWithCleanCache();
+    updateRow.mockResolvedValue('t2');
+    localStorage.setItem('pt-app-profile', '{not json');
+    act(() => sync.notifyChange());
+    await waitFor(() => expect(updateRow).toHaveBeenCalled());
+    expect(updateRow.mock.calls[0][2]).toBeUndefined();
+  });
+});
