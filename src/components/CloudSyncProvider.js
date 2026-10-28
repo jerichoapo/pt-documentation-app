@@ -474,12 +474,9 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
 
   const getCacheVersion = useCallback(() => cacheVersionRef.current, []);
 
-  // Drops this device's copy and downloads the cloud row again, for when the
-  // copy is damaged
+  // Runs the load again. A damaged copy lands on the unreadable screen,
+  // which offers it for download before the cloud copy replaces it.
   const reloadFromCloud = useCallback(async () => {
-    localStorage.removeItem(DATA_KEY);
-    localStorage.removeItem(PROFILE_KEY);
-    writeSyncMeta({ lastSeen: null, dirty: false });
     await load();
   }, [load]);
 

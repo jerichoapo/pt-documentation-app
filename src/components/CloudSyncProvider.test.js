@@ -461,15 +461,42 @@ describe('backups keep the profile, and reloading from the cloud', () => {
     save.mockRestore();
   });
 
-  test('reloadFromCloud downloads the row again and replaces the cache', async () => {
+  test('reloadFromCloud offers the damaged copy for download before the cloud replaces it', async () => {
     await readyWithCleanCache();
     fetchRow.mockResolvedValue(cloudRow('t9'));
     localStorage.setItem('ptAppData', '{damaged');
     await act(async () => {
       await sync.reloadFromCloud();
     });
+    expect(await screen.findByText("This device's saved data can't be read")).toBeInTheDocument();
+    expect(localStorage.getItem('ptAppData')).toBe('{damaged');
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with the cloud data' }));
     await waitFor(() => expect(JSON.parse(localStorage.getItem('ptAppData'))).toEqual(cloudData));
-    expect(screen.getByText('the app')).toBeInTheDocument();
+  });
+
+  test('a damaged profile stays out of pushes even after the profile screen loads', async () => {
+    const { ProfileProvider } = require('../context/ProfileContext');
+    seed({ data: localData, meta: { lastSeen: 't1', dirty: true } });
+    localStorage.setItem('pt-app-profile', '{damaged');
+    fetchRow.mockResolvedValue(cloudRow('t1'));
+    updateRow.mockResolvedValue('t2');
+    render(
+      <ToastProvider>
+        <ConfirmProvider>
+          <CloudSyncProvider pushDelayMs={10} retryDelaysMs={[]}>
+            <ProfileProvider>
+              <Probe />
+            </ProfileProvider>
+          </CloudSyncProvider>
+        </ConfirmProvider>
+      </ToastProvider>
+    );
+    await screen.findByText('the app');
+    expect(localStorage.getItem('pt-app-profile')).toBe('{damaged');
+    updateRow.mockClear();
+    act(() => sync.notifyChange());
+    await waitFor(() => expect(updateRow).toHaveBeenCalled());
+    expect(updateRow.mock.calls[0][2]).toBeUndefined();
   });
 });
 

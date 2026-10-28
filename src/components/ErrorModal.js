@@ -31,9 +31,9 @@ const ErrorModal = ({ error, onClearData, onExportData, onDismiss, onReloadFromC
           {error.type === 'CORRUPTION' && (
             <div className="space-y-3">
               <p className="text-sm text-gray-600">
-                The copy of your data on this device can't be read. Reload it from the cloud first.
-                If that doesn't help, export the raw data for recovery. Start Fresh deletes all data
-                and also empties the cloud.
+                The copy of your data on this device can't be read. Reload from the cloud first: it
+                offers the damaged copy for download, then uses the cloud data. Start Fresh deletes
+                all data and also empties the cloud.
               </p>
               <div className="flex flex-wrap gap-3">
                 <button

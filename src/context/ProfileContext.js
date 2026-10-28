@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { useSync } from './SyncContext';
 
 // Action types
@@ -71,11 +71,16 @@ const ProfileContext = createContext();
 export const ProfileProvider = ({ children }) => {
   const [state, dispatch] = useReducer(profileReducer, initialState);
   const { notifyChange, revision, adoptHeldData, waitForCatchUp } = useSync();
+  // True while the stored profile can't be read. The save effect then leaves
+  // it alone, so blank defaults never overwrite it (and get pushed to the
+  // cloud); the cloud copy keeps the real profile until she saves a new one.
+  const loadFailedRef = useRef(false);
 
   // Load profile from localStorage on mount, and again whenever the cloud sync
   // replaces the cache. Defaults fill any field the stored profile lacks.
   useEffect(() => {
     try {
+      loadFailedRef.current = false;
       const storedProfile = localStorage.getItem('pt-app-profile');
       if (storedProfile) {
         const parsedProfile = JSON.parse(storedProfile);
@@ -90,6 +95,7 @@ export const ProfileProvider = ({ children }) => {
         });
       }
     } catch (error) {
+      loadFailedRef.current = true;
       console.error('Failed to load profile from localStorage:', error);
       dispatch({
         type: ACTIONS.SET_ERROR,
@@ -100,7 +106,7 @@ export const ProfileProvider = ({ children }) => {
 
   // Save profile to localStorage whenever it changes
   useEffect(() => {
-    if (!state.isLoading) {
+    if (!state.isLoading && !loadFailedRef.current) {
       try {
         localStorage.setItem('pt-app-profile', JSON.stringify(state.profile));
       } catch (error) {
@@ -134,6 +140,7 @@ export const ProfileProvider = ({ children }) => {
       });
       // Written now rather than by the effect, so the push that follows sends it
       localStorage.setItem('pt-app-profile', JSON.stringify(updatedProfile));
+      loadFailedRef.current = false;
       notifyChange();
 
       return updatedProfile;
