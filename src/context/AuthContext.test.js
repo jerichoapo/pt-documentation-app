@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 import { getSupabase } from '../data/supabaseClient';
 
@@ -62,4 +62,43 @@ test('a failed sign-out keeps the cache and reports the error', async () => {
   });
   expect(result.error).toBeTruthy();
   expect(localStorage.getItem('ptAppData')).not.toBeNull();
+});
+
+describe('offline with a stored session that needs refreshing', () => {
+  const { AuthRetryableFetchError } = jest.requireActual('@supabase/supabase-js');
+  const offlineResult = () => ({ data: { session: null }, error: new AuthRetryableFetchError('Failed to fetch', 0) });
+
+  test('reports offline instead of signed out', async () => {
+    mockClient({ getSession: jest.fn().mockResolvedValue(offlineResult()) });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(auth.isOffline).toBe(true));
+    expect(auth.user).toBeNull();
+  });
+
+  test('Try again restores the session once the network is back', async () => {
+    const getSession = jest.fn()
+      .mockResolvedValueOnce(offlineResult())
+      .mockResolvedValue({ data: { session: { user: { id: 'u1', email: 'her@example.com' } } }, error: null });
+    mockClient({ getSession });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(auth.isOffline).toBe(true));
+    await act(async () => {
+      await auth.retry();
+    });
+    expect(await screen.findByText('her@example.com')).toBeInTheDocument();
+    expect(auth.isOffline).toBe(false);
+  });
+
+  test('coming back online retries by itself', async () => {
+    const getSession = jest.fn()
+      .mockResolvedValueOnce(offlineResult())
+      .mockResolvedValue({ data: { session: { user: { id: 'u1', email: 'her@example.com' } } }, error: null });
+    mockClient({ getSession });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(auth.isOffline).toBe(true));
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(await screen.findByText('her@example.com')).toBeInTheDocument();
+  });
 });

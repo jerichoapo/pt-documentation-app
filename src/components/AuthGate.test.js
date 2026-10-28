@@ -33,3 +33,13 @@ test('nothing renders but a loading line while the session is restored', () => {
   expect(screen.getByText('Loading…')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
 });
+
+test('offline with a session to restore shows an offline screen, not the sign-in form', () => {
+  const retry = jest.fn();
+  useAuth.mockReturnValue({ user: null, isLoading: false, isOffline: true, retry });
+  renderAt('/');
+  expect(screen.getByText("You're offline")).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
+  screen.getByRole('button', { name: 'Try again' }).click();
+  expect(retry).toHaveBeenCalled();
+});

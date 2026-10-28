@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { getSupabase } from '../data/supabaseClient';
 import { clearLocalCache } from '../data/syncLogic';
 
@@ -9,23 +10,54 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  // True when the stored session needs refreshing and the network is down.
+  // The session stays stored, so she isn't signed out; the app resumes once
+  // the refresh goes through.
+  const [isOffline, setIsOffline] = useState(false);
+  const activeRef = useRef(true);
+
+  const restoreSession = useCallback(async () => {
+    const { data, error } = await getSupabase().auth.getSession();
+    if (!activeRef.current) return false;
+    setIsOffline(Boolean(error) && isAuthRetryableFetchError(error));
+    setSession(data.session);
+    setIsLoading(false);
+    return Boolean(data.session);
+  }, []);
 
   useEffect(() => {
-    const supabase = getSupabase();
-    let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setIsLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => {
-      if (active) setSession(next);
+    activeRef.current = true;
+    restoreSession();
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, next) => {
+      if (!activeRef.current) return;
+      setSession(next);
+      if (next) setIsOffline(false);
     });
     return () => {
-      active = false;
+      activeRef.current = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [restoreSession]);
+
+  // After a refresh fails offline, supabase-js can stay stuck on it even once
+  // the network is back. Try once more; if that doesn't bring the session back
+  // within 5 seconds, reload the page, which starts a fresh client with the
+  // stored session.
+  const retry = useCallback(async () => {
+    let timer;
+    const timedOut = new Promise((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), 5000);
+    });
+    const outcome = await Promise.race([restoreSession(), timedOut]);
+    clearTimeout(timer);
+    if (outcome !== true) window.location.reload();
+  }, [restoreSession]);
+
+  useEffect(() => {
+    if (!isOffline) return undefined;
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [isOffline, retry]);
 
   const signIn = async (email, password) => {
     try {
@@ -52,6 +84,8 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user: session?.user || null,
     isLoading,
+    isOffline,
+    retry,
     signIn,
     signOut
   };
