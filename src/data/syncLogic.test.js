@@ -8,7 +8,8 @@ import {
   hasLocalData,
   chooseLoadPath,
   createPushQueue,
-  describeLastSynced
+  describeLastSynced,
+  unsavedWorkWarning
 } from './syncLogic';
 
 const flush = async () => {
@@ -31,7 +32,7 @@ describe('sync meta and the local cache', () => {
     expect(JSON.parse(localStorage.getItem(SYNC_META_KEY)).lastSeen).toBe('t1');
   });
 
-  test('clearLocalCache removes the data, profile, and sync meta but not the draft', () => {
+  test('clearLocalCache removes the data, profile, sync meta, and the note draft', () => {
     localStorage.setItem('ptAppData', '{}');
     localStorage.setItem('pt-app-profile', '{}');
     localStorage.setItem(SYNC_META_KEY, '{}');
@@ -40,7 +41,7 @@ describe('sync meta and the local cache', () => {
     expect(localStorage.getItem('ptAppData')).toBeNull();
     expect(localStorage.getItem('pt-app-profile')).toBeNull();
     expect(localStorage.getItem(SYNC_META_KEY)).toBeNull();
-    expect(localStorage.getItem('ptAppSessionDraft')).toBe('{}');
+    expect(localStorage.getItem('ptAppSessionDraft')).toBeNull();
   });
 
   test('readLocalSnapshot parses both keys and returns null for missing or broken ones', () => {
@@ -232,5 +233,22 @@ describe('describeLastSynced', () => {
     [ago(2 * 24 * 60 * 60 * 1000), 'Last synced 2 days ago']
   ])('%s', (lastSyncedAt, expected) => {
     expect(describeLastSynced(lastSyncedAt, now)).toBe(expected);
+  });
+});
+
+describe('unsavedWorkWarning', () => {
+  test('is null when everything reached the cloud and no note is in progress', () => {
+    writeSyncMeta({ dirty: false });
+    expect(unsavedWorkWarning()).toBeNull();
+  });
+
+  test('names changes that have not reached the cloud', () => {
+    writeSyncMeta({ dirty: true });
+    expect(unsavedWorkWarning()).toMatch(/haven't reached the cloud/);
+  });
+
+  test('names a note draft in progress', () => {
+    localStorage.setItem('ptAppSessionDraft', JSON.stringify({ patientId: 'p1' }));
+    expect(unsavedWorkWarning()).toMatch(/note you started/);
   });
 });

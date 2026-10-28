@@ -46,7 +46,10 @@ PDF/DOCX/CSV or copy it as text.
   check for newer rows; screens with unsaved state call `useEditingHold`
   (`src/context/SyncContext.js`), and every mutation calls `adoptHeldData()` first so a
   save builds on a held row. The `revision` counter tells the data and profile contexts
-  to reload from the cache.
+  to reload from the cache. Tabs share the cache: a `storage` event from another tab
+  bumps the cache version, and `PatientDataContext` re-reads the cache before any change
+  when the version moved. A change made while a catch-up check is running waits for it
+  (`waitForCatchUp`, at most 3 s).
 - `src/context/AuthContext.js`, `src/components/AuthGate.js` — Supabase session and the
   login-only routing. `src/data/supabaseClient.js` creates the client lazily.
 - `supabase/migrations/` — the `app_data` table, RLS, the trigger that stamps
@@ -62,7 +65,8 @@ PDF/DOCX/CSV or copy it as text.
 - Storage keys: `ptAppData` (schema v1.4) and `pt-app-profile` (provider info) are a
   cache of the cloud row; `ptAppSync` holds `lastSeen`, `dirty`, and `lastSyncedAt`;
   `pt-app-meta` (backup timestamps) and `ptAppSessionDraft` (wizard draft) stay per
-  device. Sign-out removes the first three.
+  device. Sign-out removes all but `pt-app-meta`, and asks first when a draft or an
+  unsent change would be lost (`unsavedWorkWarning`).
 
 ## Invariants — do not break these (each guards a fixed data-loss bug)
 
@@ -110,7 +114,7 @@ PDF/DOCX/CSV or copy it as text.
 Bug-fix pass (commit `87b30bd`) plus all four roadmap phases are built:
 backup/restore + drafts + ConfirmModal (Phase 1), copy-forward + last-note peek
 (Phase 2), caseload search/grouping + nav + tablet pass (Phase 3), and schema
-1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 138 passing
+1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 149 passing
 tests; CI build clean.
 
 The mobile pass from `docs/ux-audit-2026-10-28.md` is built (plan:

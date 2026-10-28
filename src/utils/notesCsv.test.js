@@ -73,3 +73,14 @@ test('names the file by date, and by patient when exporting one', () => {
   expect(csvFileName({ patient: { firstName: 'Ava', lastName: 'Martinez' }, now })).toBe('pt-app-notes-martinez-ava-2026-10-28.csv');
   expect(csvFileName({ patient: { firstName: 'Mary Ann', lastName: "O'Brien" }, now })).toBe('pt-app-notes-o-brien-mary-ann-2026-10-28.csv');
 });
+
+test('text that starts like a formula stays text in Sheets', () => {
+  const sessions = [note({ id: 's1', subjective: '- Continue POC', assessment: '+2 reps', plan: '=SUM(1)', objectiveNotes: '@home', therExMinutes: 15 })];
+  const [, row] = rows(buildNotesCsv({ sessions, patients, schools }));
+  expect(row).toContain(`"'- Continue POC"`);
+  expect(row).toContain(`"'+2 reps"`);
+  expect(row).toContain(`"'=SUM(1)"`);
+  expect(row).toContain(`"'@home"`);
+  expect(row).toContain('"2026-10-20","09:00","09:30"');
+  expect(row).toContain('"15","10"');
+});

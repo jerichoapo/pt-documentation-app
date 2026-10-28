@@ -23,7 +23,11 @@ export const CSV_COLUMNS = [
   'updated_at'
 ];
 
-const quote = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+// Sheets reads a cell that starts with = + - or @ as a formula, so "- Continue
+// POC" would show #ERROR!. A leading apostrophe keeps it text.
+const asText = (value) => (typeof value === 'string' && /^[=+\-@\t\r]/.test(value) ? `'${value}` : value);
+
+const quote = (value) => `"${String(asText(value) ?? '').replace(/"/g, '""')}"`;
 
 const pad = (n) => String(n).padStart(2, '0');
 

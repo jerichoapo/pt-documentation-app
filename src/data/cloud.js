@@ -50,8 +50,10 @@ export const replaceRow = async (userId, data, profile) => {
   return rows[0].updated_at;
 };
 
-// Calls onSignal(updatedAt) whenever the row changes. Returns an unsubscribe.
-export const subscribeToRow = (userId, onSignal) => {
+// Calls onSignal(updatedAt) whenever the row changes, and onSubscribed() each
+// time the channel connects or reconnects (changes made while it was down
+// are never replayed). Returns an unsubscribe.
+export const subscribeToRow = (userId, onSignal, onSubscribed = () => {}) => {
   const supabase = getSupabase();
   const channel = supabase
     .channel(`app_data:${userId}`)
@@ -60,7 +62,9 @@ export const subscribeToRow = (userId, onSignal) => {
       { event: '*', schema: 'public', table: TABLE, filter: `user_id=eq.${userId}` },
       (payload) => onSignal(payload.new?.updated_at || null)
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') onSubscribed();
+    });
   return () => {
     supabase.removeChannel(channel);
   };

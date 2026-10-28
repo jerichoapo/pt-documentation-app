@@ -317,3 +317,27 @@ describe('changes from the other device', () => {
     expect(await screen.findByText('Updated from your other device')).toBeInTheDocument();
   });
 });
+
+describe('review fixes', () => {
+  test('the app checks the cloud again each time Realtime connects', async () => {
+    let onSubscribed;
+    subscribeToRow.mockImplementation((uid, onSignal, subscribed) => {
+      onSubscribed = subscribed;
+      return () => {};
+    });
+    await readyWithCleanCache();
+    fetchRow.mockResolvedValue({ data: { ...localData, patients: [...localData.patients, patient('c9')] }, profile: localProfile, updated_at: 't9' });
+    await act(async () => onSubscribed());
+    expect(await screen.findByText('Updated from your other device')).toBeInTheDocument();
+  });
+
+  test('the banner stays up through the next change until a push succeeds', async () => {
+    await readyWithCleanCache();
+    updateRow.mockRejectedValue(new TypeError('Failed to fetch'));
+    act(() => sync.notifyChange());
+    expect(await screen.findByText('Changes not saved to the cloud. Check your connection.')).toBeInTheDocument();
+
+    act(() => sync.notifyChange());
+    expect(screen.getByText('Changes not saved to the cloud. Check your connection.')).toBeInTheDocument();
+  });
+});

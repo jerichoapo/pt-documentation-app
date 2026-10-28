@@ -40,6 +40,18 @@ test('signs out at once when every change has reached the cloud', async () => {
   await waitFor(() => expect(signOut).toHaveBeenCalled());
 });
 
+test('asks before signing out when a note draft would be lost', async () => {
+  const signOut = jest.fn().mockResolvedValue({ error: null });
+  useAuth.mockReturnValue({ user: { email: 'her@example.com' }, signOut });
+  localStorage.setItem('ptAppSync', JSON.stringify({ lastSeen: 't1', dirty: false }));
+  localStorage.setItem('ptAppSessionDraft', JSON.stringify({ patientId: 'p1' }));
+  renderSettings();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+  expect(await screen.findByText(/The note you started on this device/)).toBeInTheDocument();
+  expect(signOut).not.toHaveBeenCalled();
+});
+
 test('asks before signing out with changes that have not reached the cloud', async () => {
   const signOut = jest.fn().mockResolvedValue({ error: null });
   useAuth.mockReturnValue({ user: { email: 'her@example.com' }, signOut });

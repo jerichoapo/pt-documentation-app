@@ -12,7 +12,8 @@ import {
   hasLocalData,
   countData,
   chooseLoadPath,
-  createPushQueue
+  createPushQueue,
+  unsavedWorkWarning
 } from '../data/syncLogic';
 import { downloadTextFile, todayStamp } from '../utils/download';
 import SyncScreens from './SyncScreens';
@@ -66,10 +67,22 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
   const pushInFlightRef = useRef(false);
   const recheckAfterPushRef = useRef(false);
   const checkRef = useRef(null);
+  // Counts every time the cache is replaced from outside the data context (the
+  // other device, another tab, a held row). The data context compares it
+  // before each change and reloads its copy when it moved.
+  const cacheVersionRef = useRef(0);
+  const reloadAfterEditRef = useRef(false);
+  const catchUpRef = useRef(null);
 
   const showGate = useCallback((next) => {
     gateKindRef.current = next.kind;
     setGate(next);
+  }, []);
+
+  // A failed push keeps the banner up through later changes until a push
+  // succeeds
+  const updateStatus = useCallback((next) => {
+    setStatus((previous) => (previous === 'failed' && next === 'pending' ? 'failed' : next));
   }, []);
 
   const recordSynced = useCallback((updatedAt, extra = {}) => {
@@ -127,15 +140,19 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
   // data contexts to reload it.
   const applyIncoming = useCallback((row) => {
     applyRow(row);
+    cacheVersionRef.current += 1;
     setRevision((r) => r + 1);
     addToast('Updated from your other device', 'info');
   }, [applyRow, addToast]);
 
-  // Runs on a Realtime signal, when the app comes back into view, and when
-  // the connection returns. A signal carrying the updated_at this device
-  // already has is its own push echoing back. While a push is in flight the
-  // check waits for it, so the echo is never mistaken for the other device.
-  checkRef.current = async (signalUpdatedAt) => {
+  // Runs on a Realtime signal, when Realtime (re)connects, when the app comes
+  // back into view, and when the connection returns. A signal carrying the
+  // updated_at this device already has is its own push echoing back. While a
+  // push is in flight the check waits for it, so the echo is never mistaken
+  // for the other device. A change made while a check is running waits for
+  // it (waitForCatchUp), so a save right after resuming builds on what the
+  // check finds.
+  const checkForNewerRow = async (signalUpdatedAt) => {
     if (gateKindRef.current !== 'ready') return;
     if (signalUpdatedAt && signalUpdatedAt === readSyncMeta().lastSeen) return;
     if (pushInFlightRef.current) {
@@ -163,20 +180,29 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     applyIncoming(row);
   };
 
+  checkRef.current = (signalUpdatedAt) => {
+    const check = checkForNewerRow(signalUpdatedAt);
+    catchUpRef.current = check;
+    check.finally(() => {
+      if (catchUpRef.current === check) catchUpRef.current = null;
+    });
+    return check;
+  };
+
   useEffect(() => {
     const { pushDelayMs: delayMs, retryDelaysMs: retries } = queueOptionsRef.current;
     const queue = createPushQueue({
       push: () => pushRef.current(),
       delayMs,
       retryDelaysMs: retries,
-      onStatus: setStatus
+      onStatus: updateStatus
     });
     queueRef.current = queue;
     return () => {
       queue.cancel();
       if (queueRef.current === queue) queueRef.current = null;
     };
-  }, []);
+  }, [updateStatus]);
 
   const load = useCallback(async () => {
     showGate({ kind: 'loading' });
@@ -298,10 +324,11 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
   };
 
   const signOutFromGate = async () => {
-    if (readSyncMeta().dirty) {
+    const warning = unsavedWorkWarning();
+    if (warning) {
       const confirmed = await confirm({
         title: 'Sign out with unsaved changes?',
-        message: "Some changes on this device haven't reached the cloud yet. If you sign out now, they're lost.",
+        message: warning,
         confirmLabel: 'Sign out anyway',
         danger: true
       });
@@ -312,7 +339,11 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
 
   useEffect(() => {
     if (gate.kind !== 'ready') return undefined;
-    const unsubscribe = subscribeToRow(userId, (updatedAt) => checkRef.current(updatedAt));
+    const unsubscribe = subscribeToRow(
+      userId,
+      (updatedAt) => checkRef.current(updatedAt),
+      () => checkRef.current(null)
+    );
     const onVisible = () => {
       if (document.visibilityState === 'visible') checkRef.current(null);
     };
@@ -326,16 +357,44 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     };
   }, [gate.kind, userId]);
 
+  // Another tab of this browser shares the cache. When it writes, reload from
+  // the cache; mid-edit, wait for the edit to end (the next change here reads
+  // the cache first). When it removes the cache (signed out there), run the
+  // load again rather than show an empty caseload.
+  useEffect(() => {
+    if (gate.kind !== 'ready') return undefined;
+    const onStorage = (event) => {
+      if (event.key !== DATA_KEY && event.key !== PROFILE_KEY) return;
+      if (event.key === DATA_KEY && event.newValue === null) {
+        load();
+        return;
+      }
+      cacheVersionRef.current += 1;
+      if (editCountRef.current > 0) {
+        reloadAfterEditRef.current = true;
+        return;
+      }
+      setRevision((r) => r + 1);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [gate.kind, load]);
+
   const beginEdit = useCallback(() => {
     editCountRef.current += 1;
   }, []);
 
   const endEdit = useCallback(() => {
     editCountRef.current = Math.max(0, editCountRef.current - 1);
-    if (editCountRef.current === 0 && heldRowRef.current) {
-      const row = heldRowRef.current;
-      heldRowRef.current = null;
-      if (row.updated_at !== readSyncMeta().lastSeen) applyIncoming(row);
+    if (editCountRef.current > 0) return;
+    const row = heldRowRef.current;
+    heldRowRef.current = null;
+    if (row && row.updated_at !== readSyncMeta().lastSeen) {
+      reloadAfterEditRef.current = false;
+      applyIncoming(row);
+    } else if (reloadAfterEditRef.current) {
+      reloadAfterEditRef.current = false;
+      setRevision((r) => r + 1);
     }
   }, [applyIncoming]);
 
@@ -348,11 +407,28 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     heldRowRef.current = null;
     writeCache(row.data, row.profile);
     recordSynced(row.updated_at);
+    cacheVersionRef.current += 1;
     const data = initializedCache();
     setRevision((r) => r + 1);
     addToast('Updated from your other device', 'info');
     return data;
   }, [recordSynced, addToast]);
+
+  const getCacheVersion = useCallback(() => cacheVersionRef.current, []);
+
+  // The check in progress, if any, capped at 3 seconds so a slow network
+  // never blocks a save for long. Null when nothing is running.
+  const waitForCatchUp = useCallback(() => {
+    const pending = catchUpRef.current;
+    if (!pending) return null;
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, 3000);
+      pending.finally(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }, []);
 
   const value = useMemo(() => ({
     notifyChange,
@@ -362,8 +438,10 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     retryPush,
     beginEdit,
     endEdit,
-    adoptHeldData
-  }), [notifyChange, revision, status, lastSyncedAt, retryPush, beginEdit, endEdit, adoptHeldData]);
+    adoptHeldData,
+    getCacheVersion,
+    waitForCatchUp
+  }), [notifyChange, revision, status, lastSyncedAt, retryPush, beginEdit, endEdit, adoptHeldData, getCacheVersion, waitForCatchUp]);
 
   if (gate.kind !== 'ready') {
     return (

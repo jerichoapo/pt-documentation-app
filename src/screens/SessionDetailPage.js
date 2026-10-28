@@ -42,7 +42,13 @@ const SessionDetailPage = () => {
     }
   }, [session, editedSession]);
 
+  // Start from the note as it is now: it may have changed on the other device
+  // since this page opened
   const handleStartEdit = () => {
+    setEditedSession({
+      ...session,
+      sessionDate: session.sessionDate ? toDateInputValue(session.sessionDate) : ''
+    });
     setIsEditing(true);
   };
 

@@ -76,7 +76,7 @@ npm start          # dev server on http://localhost:3000
 Other commands:
 
 ```bash
-CI=true npx react-scripts test --watchAll=false   # unit tests (138 tests)
+CI=true npx react-scripts test --watchAll=false   # unit tests (149 tests)
 CI=true npm run build                             # production build; CI mode fails on lint warnings
 npm run audit:phone                               # with npm start running: phone-width layout check
 ```
@@ -100,8 +100,10 @@ their own row; public sign-up is off. The dashboard's `notes_view`,
 **On each device:** the browser keeps a copy in localStorage (`ptAppData`,
 `pt-app-profile`, and `ptAppSync` for sync bookkeeping) so the app opens
 quickly. That copy is replaced from the cloud on every load, and signing out
-removes it. The wizard draft (`ptAppSessionDraft`) and backup timestamps
-(`pt-app-meta`) stay on the device and don't sync.
+removes it along with any unsaved note draft (`ptAppSessionDraft`); the app asks
+first when that would lose work. The draft and the backup timestamps
+(`pt-app-meta`) don't sync. Tabs of the same browser share the copy, so a save in
+one tab shows in the others.
 
 **How sync behaves:**
 

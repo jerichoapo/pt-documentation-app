@@ -87,16 +87,19 @@ const PatientDataContext = createContext();
 export const PatientDataProvider = ({ children }) => {
   const [state, dispatch] = useReducer(patientDataReducer, initialState);
   const { addToast } = useToastContext();
-  const { notifyChange, revision, adoptHeldData } = useSync();
+  const { notifyChange, revision, adoptHeldData, getCacheVersion, waitForCatchUp } = useSync();
 
   // Latest data, updated synchronously on every mutation. React state updates
   // are async, so sequential awaited actions (e.g. bulk restore loops) must
   // not read from the render closure or later writes clobber earlier ones.
   const dataRef = useRef({ patients: [], sessions: [], schools: [] });
+  // The cloud sync's cache version that dataRef was read at
+  const loadedVersionRef = useRef(null);
 
   // Load data on mount, and again whenever the cloud sync replaces the cache
   useEffect(() => {
     try {
+      loadedVersionRef.current = getCacheVersion();
       const data = store.init();
       dataRef.current = {
         patients: data.patients,
@@ -128,7 +131,7 @@ export const PatientDataProvider = ({ children }) => {
         });
       }
     }
-  }, [revision]);
+  }, [revision, getCacheVersion]);
 
   // Action creators
 
@@ -140,18 +143,33 @@ export const PatientDataProvider = ({ children }) => {
     schools: dataRef.current.schools
   });
 
-  // A change from the other device that arrived while a screen was being
-  // edited lands before this device's next change, so the change builds on
-  // the newest data instead of overwriting it.
+  // Before every change, make dataRef the newest data: a change from the other
+  // device held during an edit goes into the cache first, and if the cache
+  // moved since dataRef was read (that device, or another tab of this
+  // browser), dataRef is read again. The change then builds on it instead of
+  // overwriting it.
   const adoptHeld = () => {
-    const adopted = adoptHeldData();
-    if (adopted) {
+    adoptHeldData();
+    if (getCacheVersion() === loadedVersionRef.current) return;
+    try {
+      const fresh = store.init();
       dataRef.current = {
-        patients: adopted.patients,
-        sessions: adopted.sessions,
-        schools: adopted.schools
+        patients: fresh.patients,
+        sessions: fresh.sessions,
+        schools: fresh.schools
       };
+      loadedVersionRef.current = getCacheVersion();
+    } catch (error) {
+      // An unreadable cache keeps the current copy; the load path reports it
     }
+  };
+
+  // Lets a cloud check that is already running (the app just came back into
+  // view) finish first, so a save right after resuming sees what it finds.
+  const settleSync = async () => {
+    const pending = waitForCatchUp();
+    if (pending) await pending;
+    adoptHeld();
   };
 
   // Record a mutation result synchronously, then update React state
@@ -167,7 +185,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const addPatient = async (patientData, options = {}) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.addPatient(getFullData(), patientData, options);
 
       applyData(ACTIONS.ADD_PATIENT, newData);
@@ -194,7 +212,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const updatePatient = async (patientId, updates) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.updatePatient(getFullData(), patientId, updates);
 
       applyData(ACTIONS.UPDATE_PATIENT, newData);
@@ -209,7 +227,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const deletePatient = async (patientId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.deletePatient(getFullData(), patientId);
 
       applyData(ACTIONS.DELETE_PATIENT, newData);
@@ -224,7 +242,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const addSession = async (sessionData) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.addSession(getFullData(), sessionData);
 
       applyData(ACTIONS.ADD_SESSION, newData);
@@ -256,7 +274,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const updateSession = async (sessionId, updates) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.updateSession(getFullData(), sessionId, updates);
 
       applyData(ACTIONS.UPDATE_SESSION, newData);
@@ -285,7 +303,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const deleteSession = async (sessionId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const sessionToDelete = getFullData().sessions.find(s => s.id === sessionId);
       if (!sessionToDelete) {
         throw new Error('Session not found');
@@ -311,7 +329,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const softDeletePatient = async (patientId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const patientToDelete = getFullData().patients.find(p => p.id === patientId);
       if (!patientToDelete) {
         throw new Error('Patient not found');
@@ -342,7 +360,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const softDeleteSession = async (sessionId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const sessionToDelete = getFullData().sessions.find(s => s.id === sessionId);
       if (!sessionToDelete) {
         throw new Error('Session not found');
@@ -368,7 +386,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const restorePatient = async (patientId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const currentData = getFullData();
       const patientToRestore = currentData.patients.find(p => p.id === patientId && p.deleted_at);
       if (!patientToRestore) {
@@ -400,7 +418,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const restoreSession = async (sessionId, options = {}) => {
     try {
-      adoptHeld();
+      await settleSync();
       const sessionToRestore = getFullData().sessions.find(s => s.id === sessionId && s.deleted_at);
       if (!sessionToRestore) {
         throw new Error('Session not found or not deleted');
@@ -429,7 +447,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const permanentlyDeletePatient = async (patientId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const patientToDelete = getFullData().patients.find(p => p.id === patientId && p.deleted_at);
       if (!patientToDelete) {
         throw new Error('Patient not found or not deleted');
@@ -455,7 +473,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const permanentlyDeleteSession = async (sessionId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const sessionToDelete = getFullData().sessions.find(s => s.id === sessionId && s.deleted_at);
       if (!sessionToDelete) {
         throw new Error('Session not found or not deleted');
@@ -481,7 +499,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const createSchool = async (schoolData) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.createSchool(getFullData(), schoolData);
 
       applyData(ACTIONS.CREATE_SCHOOL, newData);
@@ -507,7 +525,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const updateSchool = async (schoolId, updates) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.updateSchool(getFullData(), schoolId, updates);
 
       applyData(ACTIONS.UPDATE_SCHOOL, newData);
@@ -533,7 +551,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const deleteSchool = async (schoolId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const schoolToDelete = getFullData().schools.find(s => s.id === schoolId);
       if (!schoolToDelete) {
         throw new Error('School not found');
@@ -564,7 +582,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const softDeleteSchool = async (schoolId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const schoolToDelete = getFullData().schools.find(s => s.id === schoolId);
       if (!schoolToDelete) {
         throw new Error('School not found');
@@ -595,7 +613,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const restoreSchool = async (schoolId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const schoolToRestore = getFullData().schools.find(s => s.id === schoolId && s.deleted_at);
       if (!schoolToRestore) {
         throw new Error('School not found or not deleted');
@@ -621,7 +639,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const permanentlyDeleteSchool = async (schoolId) => {
     try {
-      adoptHeld();
+      await settleSync();
       const schoolToDelete = getFullData().schools.find(s => s.id === schoolId && s.deleted_at);
       if (!schoolToDelete) {
         throw new Error('School not found or not deleted');
@@ -672,7 +690,7 @@ export const PatientDataProvider = ({ children }) => {
 
   const importData = async (raw) => {
     try {
-      adoptHeld();
+      await settleSync();
       const newData = store.importData(raw);
       dataRef.current = {
         patients: newData.patients,

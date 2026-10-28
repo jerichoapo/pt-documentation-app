@@ -5,6 +5,7 @@
 export const SYNC_META_KEY = 'ptAppSync';
 const DATA_KEY = 'ptAppData';
 const PROFILE_KEY = 'pt-app-profile';
+const DRAFT_KEY = 'ptAppSessionDraft';
 
 const DEFAULT_META = { lastSeen: null, dirty: false, lastSyncedAt: null };
 
@@ -27,12 +28,22 @@ export const writeSyncMeta = (patch) => {
   return next;
 };
 
-// Signing out leaves no patient data on the device. The wizard draft and the
-// backup timestamps stay; both are per device by nature.
+// Signing out leaves no patient data on the device, including a note draft.
+// The backup timestamps stay.
 export const clearLocalCache = () => {
   localStorage.removeItem(DATA_KEY);
   localStorage.removeItem(PROFILE_KEY);
   localStorage.removeItem(SYNC_META_KEY);
+  localStorage.removeItem(DRAFT_KEY);
+};
+
+// What signing out now would lose, as one sentence for the confirm dialog, or
+// null when nothing would be lost.
+export const unsavedWorkWarning = () => {
+  const losses = [];
+  if (readSyncMeta().dirty) losses.push("Some changes on this device haven't reached the cloud yet.");
+  if (localStorage.getItem(DRAFT_KEY)) losses.push("The note you started on this device hasn't been saved.");
+  return losses.length ? `${losses.join(' ')} If you sign out now, that work is lost.` : null;
 };
 
 export const readLocalSnapshot = () => ({

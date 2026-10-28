@@ -6,7 +6,7 @@ import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useAuth } from '../context/AuthContext';
 import { useSync } from '../context/SyncContext';
-import { readSyncMeta, describeLastSynced } from '../data/syncLogic';
+import { unsavedWorkWarning, describeLastSynced } from '../data/syncLogic';
 import { getAppMeta, setAppMeta, daysSince } from '../utils/appMeta';
 import { formatShortDate } from '../utils/sessionFormatting';
 import { buildNotesCsv, csvFileName } from '../utils/notesCsv';
@@ -106,10 +106,11 @@ const SettingsPage = () => {
   };
 
   const handleSignOut = async () => {
-    if (readSyncMeta().dirty) {
+    const warning = unsavedWorkWarning();
+    if (warning) {
       const confirmed = await confirm({
         title: 'Sign out with unsaved changes?',
-        message: "Some changes on this device haven't reached the cloud yet. If you sign out now, they're lost.",
+        message: warning,
         confirmLabel: 'Sign out anyway',
         danger: true
       });

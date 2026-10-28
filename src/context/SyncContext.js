@@ -12,7 +12,9 @@ const defaultValue = {
   retryPush: noop,
   beginEdit: noop,
   endEdit: noop,
-  adoptHeldData: () => null
+  adoptHeldData: () => null,
+  getCacheVersion: () => 0,
+  waitForCatchUp: () => null
 };
 
 export const SyncContext = createContext(defaultValue);
