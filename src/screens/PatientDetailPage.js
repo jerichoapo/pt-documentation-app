@@ -8,6 +8,8 @@ import { useConfirm } from '../context/ConfirmContext';
 import { formatMediumDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, formatDisplayPhone, formatAge } from '../utils/sessionFormatting';
 import { useStartSession } from '../hooks/useStartSession';
 import { exportBulkNotesToPDF, exportBulkNotesToDOCX } from '../utils/exportNotes';
+import { buildNotesCsv, csvFileName } from '../utils/notesCsv';
+import { downloadTextFile } from '../utils/download';
 import ExportFormatModal from '../components/ExportFormatModal';
 import BackLink from '../components/BackLink';
 
@@ -15,7 +17,7 @@ const PatientDetailPage = () => {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const patient = usePatient(patientId);
-  const { softDeletePatient, getSchoolById } = usePatientData();
+  const { softDeletePatient, getSchoolById, exportData } = usePatientData();
   const allSessions = useSessionsForPatient(patientId);
   const startSession = useStartSession();
   const { profile } = useProfile();
@@ -71,6 +73,14 @@ const PatientDetailPage = () => {
         await exportBulkNotesToPDF(allSessions, patient, profile);
       } else if (format === 'docx') {
         await exportBulkNotesToDOCX(allSessions, patient, profile);
+      } else if (format === 'csv') {
+        const full = JSON.parse(exportData());
+        const csv = buildNotesCsv({
+          sessions: full.sessions.filter(s => s.patientId === patient.id),
+          patients: full.patients,
+          schools: full.schools
+        });
+        downloadTextFile(csvFileName({ patient }), csv, 'text/csv;charset=utf-8');
       }
       addToast('All notes exported successfully!', 'success');
     } catch (error) {
@@ -304,6 +314,7 @@ const PatientDetailPage = () => {
         onExport={handleExportAllNotes}
         isExporting={isExporting}
         title="Download All Session Notes"
+        allowCsv
         warning={!profile?.firstName ? (
           <span>
             Exports will show "Provider: N/A" —{' '}

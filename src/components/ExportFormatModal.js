@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Download, FileText, File } from 'lucide-react';
+import { Download, FileText, File, FileSpreadsheet } from 'lucide-react';
 
-const ExportFormatModal = ({ isOpen, onClose, onExport, isExporting, title, warning }) => {
+const ExportFormatModal = ({ isOpen, onClose, onExport, isExporting, title, warning, allowCsv = false }) => {
   const [selectedFormat, setSelectedFormat] = useState('pdf');
 
   const handleExport = async () => {
@@ -59,6 +59,26 @@ const ExportFormatModal = ({ isOpen, onClose, onExport, isExporting, title, warn
                 </div>
               </div>
             </label>
+
+            {allowCsv && (
+              <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="csv"
+                  checked={selectedFormat === 'csv'}
+                  onChange={(e) => setSelectedFormat(e.target.value)}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                <div className="flex items-center space-x-3">
+                  <FileSpreadsheet className="text-green-600" size={24} />
+                  <div>
+                    <div className="font-medium text-gray-800">Spreadsheet (CSV)</div>
+                    <div className="text-sm text-gray-600">Opens in Google Sheets</div>
+                  </div>
+                </div>
+              </label>
+            )}
           </div>
 
           <div className="flex items-center justify-end space-x-3">

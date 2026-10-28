@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Upload, User, ChevronRight, HardDrive, Trash2, LogOut, CircleUser } from 'lucide-react';
+import { Download, Upload, User, ChevronRight, HardDrive, Trash2, LogOut, CircleUser, Sheet } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -9,6 +9,8 @@ import { useSync } from '../context/SyncContext';
 import { readSyncMeta, describeLastSynced } from '../data/syncLogic';
 import { getAppMeta, setAppMeta, daysSince } from '../utils/appMeta';
 import { formatShortDate } from '../utils/sessionFormatting';
+import { buildNotesCsv, csvFileName } from '../utils/notesCsv';
+import { downloadTextFile } from '../utils/download';
 import BackLink from '../components/BackLink';
 
 const activeCounts = (data) => ({
@@ -94,6 +96,13 @@ const SettingsPage = () => {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleExportCsv = () => {
+    // The full data, so a patient whose school was deleted still shows its name
+    const full = JSON.parse(exportData());
+    downloadTextFile(csvFileName(), buildNotesCsv(full), 'text/csv;charset=utf-8');
+    addToast('Notes exported', 'success');
   };
 
   const handleSignOut = async () => {
@@ -192,6 +201,17 @@ const SettingsPage = () => {
             ? `Last backup: ${formatShortDate(lastBackupAt)}${backupAge !== null ? ` (${backupAge === 0 ? 'today' : `${backupAge} day${backupAge !== 1 ? 's' : ''} ago`})` : ''}`
             : 'Last backup: never'}
         </p>
+
+        <div className="border-t border-gray-200 mt-4 pt-4">
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-2 min-h-[44px] bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 font-medium"
+          >
+            <Sheet size={18} />
+            Export all notes (CSV)
+          </button>
+          <p className="text-sm text-gray-500 mt-2">One row per note. Opens in Google Sheets.</p>
+        </div>
       </div>
 
       {/* Profile link */}
