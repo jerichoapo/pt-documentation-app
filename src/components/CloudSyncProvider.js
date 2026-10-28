@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useToastContext } from '../context/ToastContext';
 import { store } from '../data/store';
-import { fetchRow, insertRow, updateRow, replaceRow, subscribeToRow } from '../data/cloud';
+import { fetchRow, fetchRowVersion, insertRow, updateRow, replaceRow, subscribeToRow } from '../data/cloud';
 import {
   readSyncMeta,
   writeSyncMeta,
@@ -176,6 +176,9 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     }
     let row;
     try {
+      // Download the whole row only when its version moved
+      const version = await fetchRowVersion(userId);
+      if (!version || version === readSyncMeta().lastSeen) return;
       row = await fetchRow(userId);
     } catch (error) {
       return; // The next signal or visit tries again

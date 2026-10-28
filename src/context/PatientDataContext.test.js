@@ -6,11 +6,12 @@ import { ConfirmProvider } from './ConfirmContext';
 import { PatientDataProvider, usePatientData } from './PatientDataContext';
 import { useSync } from './SyncContext';
 import { useAuth } from './AuthContext';
-import { fetchRow, updateRow, subscribeToRow } from '../data/cloud';
+import { fetchRow, fetchRowVersion, updateRow, subscribeToRow } from '../data/cloud';
 
 jest.mock('./AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../data/cloud', () => ({
   fetchRow: jest.fn(),
+  fetchRowVersion: jest.fn(),
   insertRow: jest.fn(),
   updateRow: jest.fn(),
   replaceRow: jest.fn(),
@@ -39,6 +40,7 @@ const renderReady = async () => {
   localStorage.setItem('ptAppData', JSON.stringify(base));
   localStorage.setItem('ptAppSync', JSON.stringify({ lastSeen: 't0', dirty: false }));
   fetchRow.mockResolvedValue({ data: base, profile: {}, updated_at: 't1' });
+  fetchRowVersion.mockResolvedValue('changed');
   updateRow.mockResolvedValue('t3');
 
   render(

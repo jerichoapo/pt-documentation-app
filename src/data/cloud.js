@@ -22,6 +22,17 @@ export const fetchRow = async (userId) => {
   return row || null;
 };
 
+// Only the row's updated_at, so a check that finds nothing new downloads
+// almost nothing. Null when there is no row.
+export const fetchRowVersion = async (userId) => {
+  const row = check(await getSupabase()
+    .from(TABLE)
+    .select('updated_at')
+    .eq('user_id', userId)
+    .maybeSingle());
+  return row ? row.updated_at : null;
+};
+
 export const insertRow = async (userId, data, profile) => {
   const row = check(await getSupabase()
     .from(TABLE)

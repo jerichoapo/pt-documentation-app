@@ -6,12 +6,13 @@ import { ToastProvider } from '../context/ToastContext';
 import { ConfirmProvider } from '../context/ConfirmContext';
 import { useSync } from '../context/SyncContext';
 import { useAuth } from '../context/AuthContext';
-import { fetchRow, insertRow, updateRow, replaceRow, subscribeToRow } from '../data/cloud';
+import { fetchRow, fetchRowVersion, insertRow, updateRow, replaceRow, subscribeToRow } from '../data/cloud';
 import { readSyncMeta } from '../data/syncLogic';
 
 jest.mock('../context/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../data/cloud', () => ({
   fetchRow: jest.fn(),
+  fetchRowVersion: jest.fn(),
   insertRow: jest.fn(),
   updateRow: jest.fn(),
   replaceRow: jest.fn(),
@@ -70,6 +71,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   useAuth.mockReturnValue({ user: { id: 'u1', email: 'her@example.com' }, signOut: jest.fn() });
   subscribeToRow.mockReturnValue(() => {});
+  // By default a catch-up check sees a new version and downloads the row
+  fetchRowVersion.mockResolvedValue('changed');
   URL.createObjectURL = jest.fn(() => 'blob:x');
   URL.revokeObjectURL = jest.fn();
 });
@@ -467,5 +470,51 @@ describe('backups keep the profile, and reloading from the cloud', () => {
     });
     await waitFor(() => expect(JSON.parse(localStorage.getItem('ptAppData'))).toEqual(cloudData));
     expect(screen.getByText('the app')).toBeInTheDocument();
+  });
+});
+
+describe('catch-up checks read the version first', () => {
+  test('an unchanged version downloads nothing', async () => {
+    await readyWithCleanCache();
+    fetchRowVersion.mockResolvedValue('t1');
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await waitFor(() => expect(fetchRowVersion).toHaveBeenCalled());
+    expect(fetchRow).toHaveBeenCalledTimes(1);
+  });
+
+  test('a new version downloads and applies the row', async () => {
+    await readyWithCleanCache();
+    fetchRowVersion.mockResolvedValue('t9');
+    fetchRow.mockResolvedValue({ data: { ...localData, patients: [...localData.patients, patient('c9')] }, profile: localProfile, updated_at: 't9' });
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(await screen.findByText('Updated from your other device')).toBeInTheDocument();
+    expect(fetchRow).toHaveBeenCalledTimes(2);
+  });
+
+  test('a change made during a push stays unsent until a second push sends it', async () => {
+    await readyWithCleanCache();
+    let finishFirst;
+    updateRow
+      .mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve; }))
+      .mockResolvedValue('t3');
+    act(() => sync.notifyChange());
+    await waitFor(() => expect(updateRow).toHaveBeenCalledTimes(1));
+
+    const newer = { ...localData, patients: [...localData.patients, patient('p5')] };
+    act(() => {
+      localStorage.setItem('ptAppData', JSON.stringify(newer));
+      sync.notifyChange();
+    });
+    await act(async () => finishFirst('t2'));
+    expect(readSyncMeta()).toMatchObject({ lastSeen: 't2', dirty: true });
+
+    await waitFor(() => expect(updateRow).toHaveBeenCalledTimes(2));
+    expect(updateRow.mock.calls[1][1]).toEqual(newer);
+    expect(updateRow.mock.calls[1][3]).toBe('t2');
+    await waitFor(() => expect(readSyncMeta()).toMatchObject({ lastSeen: 't3', dirty: false }));
   });
 });
