@@ -4,7 +4,8 @@ import { Calendar, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Check, Edi
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { parseAppDate, toDateInputValue, formatDate } from '../utils/sessionFormatting';
+import { parseAppDate, toDateInputValue, formatMediumDate, formatAge, formatTime, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
+import { defaultSessionTimes, defaultMinutes, splitMinutes } from '../utils/sessionDefaults';
 
 const DRAFT_KEY = 'ptAppSessionDraft';
 
@@ -34,7 +35,7 @@ const soapHasContent = (soapNote) =>
   );
 
 const SessionWizard = () => {
-  const { patientId, section } = useParams();
+  const { patientId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { getPatientById, getSessionById, getSessionsForPatient, addSession } = usePatientData();
@@ -47,7 +48,9 @@ const SessionWizard = () => {
   const dateParam = searchParams.get('date');
   const copyFromId = searchParams.get('copyFrom');
 
-  const [currentStep, setCurrentStep] = useState(section === 'subjective' ? 1 : 0);
+  // Step 0 (the old patient-and-date screen) is gone: Home and the patient
+  // page already pick both. The index stays so saved drafts keep their steps.
+  const [currentStep, setCurrentStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState(() => {
     if (dateParam) {
       const parsed = parseAppDate(dateParam);
@@ -81,35 +84,6 @@ const SessionWizard = () => {
   const [peekOpen, setPeekOpen] = useState(false);
   useEffect(() => {
     setPeekOpen(false);
-  }, [currentStep]);
-
-  const getCurrentTimeDefaults = () => {
-    const now = new Date();
-    const endTime = now;
-    const startTime = new Date(now.getTime() - 30 * 60 * 1000); // 30 minutes earlier
-
-    const formatTimeForInput = (date) => {
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutes}`;
-    };
-
-    return {
-      startTime: formatTimeForInput(startTime),
-      endTime: formatTimeForInput(endTime)
-    };
-  };
-
-  // Auto-populate time fields the first time the review step is entered,
-  // without clobbering times the user has already adjusted
-  const timesInitialized = useRef(false);
-  useEffect(() => {
-    if (currentStep === 5 && !timesInitialized.current) { // Review step
-      timesInitialized.current = true;
-      const timeDefaults = getCurrentTimeDefaults();
-      setSessionStartTime(timeDefaults.startTime);
-      setSessionEndTime(timeDefaults.endTime);
-    }
   }, [currentStep]);
 
   // ---- Draft autosave ----
@@ -155,7 +129,6 @@ const SessionWizard = () => {
           if (s.sessionEndTime) setSessionEndTime(s.sessionEndTime);
           if (typeof s.therExMinutes === 'number') setTherExMinutes(s.therExMinutes);
           if (typeof s.therActMinutes === 'number') setTherActMinutes(s.therActMinutes);
-          if (s.timesInitialized) timesInitialized.current = true;
           if (typeof s.currentStep === 'number' && s.currentStep >= 1 && s.currentStep <= 5) {
             setCurrentStep(s.currentStep);
           }
@@ -186,8 +159,7 @@ const SessionWizard = () => {
               sessionEndTime,
               therExMinutes,
               therActMinutes,
-              soapNote,
-              timesInitialized: timesInitialized.current
+              soapNote
             }
           }));
         } else {
@@ -209,7 +181,8 @@ const SessionWizard = () => {
   // ---- Copy-forward ----
   // Prefill from the session named by ?copyFrom, once the draft decision is
   // settled. A resumed draft outranks the prefill; discarding it applies the
-  // prefill. Date and times are intentionally NOT copied - only the content.
+  // prefill. The date is not copied; times and minutes come from the
+  // defaults effect below.
   const copyFromSource = copyFromId ? getSessionById(copyFromId) : null;
   const copyHandled = useRef(false);
 
@@ -243,11 +216,46 @@ const SessionWizard = () => {
         plan: copyFromSource.plan || ''
       };
     });
-    setTherExMinutes(copyFromSource.therExMinutes || 0);
-    setTherActMinutes(copyFromSource.therActMinutes || 0);
-    addToast(`Prefilled from the ${formatDate(copyFromSource.sessionDate)} session - update what changed before saving`, 'info');
+    addToast(`Prefilled from the ${formatMediumDate(copyFromSource.sessionDate)} session - update what changed before saving`, 'info');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftReady, copyFromSource, copyFromId, patientId]);
+
+  // ---- Session time and minute defaults ----
+  // Notes are often written hours after the session, so the clock is the last
+  // resort: times come from the copy-forward source, else the last session;
+  // minutes from the same sources, else the session length split evenly. Runs
+  // once the draft decision is settled and the patient's data has loaded. A
+  // resumed draft keeps its own values.
+  const defaultsApplied = useRef(false);
+  // 'split' minutes keep following the session times until she edits them
+  const minutesSource = useRef('manual');
+
+  useEffect(() => {
+    if (!draftReady || !patient || defaultsApplied.current) return;
+    defaultsApplied.current = true;
+    if (draftResumed.current) return;
+
+    const copyFrom = copyFromSource && copyFromSource.patientId === patientId ? copyFromSource : null;
+    const times = defaultSessionTimes({ copyFrom, lastSession });
+    const minutes = defaultMinutes({ copyFrom, lastSession, ...times });
+    setSessionStartTime(times.startTime);
+    setSessionEndTime(times.endTime);
+    setTherExMinutes(minutes.therExMinutes);
+    setTherActMinutes(minutes.therActMinutes);
+    minutesSource.current = minutes.source;
+  }, [draftReady, patient, copyFromSource, lastSession, patientId]);
+
+  useEffect(() => {
+    if (minutesSource.current !== 'split') return;
+    const split = splitMinutes(sessionStartTime, sessionEndTime);
+    setTherExMinutes(split.therExMinutes);
+    setTherActMinutes(split.therActMinutes);
+  }, [sessionStartTime, sessionEndTime]);
+
+  const handleMinutesChange = (setter) => (e) => {
+    minutesSource.current = 'manual';
+    setter(Math.max(0, parseInt(e.target.value) || 0));
+  };
 
   const steps = [
     { name: 'Calendar', icon: Calendar },
@@ -266,37 +274,6 @@ const SessionWizard = () => {
     { key: 'transfers', label: 'Transfers & Positioning' },
     { key: 'classroomMobility', label: 'Classroom Mobility' }
   ];
-
-  const formatTime = (timeString) => {
-    if (!timeString) return 'N/A';
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
-  const getSessionDurationMinutes = (startTime, endTime) => {
-    if (!startTime || !endTime) return 0;
-    const [startHour, startMin] = startTime.split(':').map(Number);
-    const [endHour, endMin] = endTime.split(':').map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
-    return endMinutes > startMinutes ? endMinutes - startMinutes : 0;
-  };
-
-  const formatDuration = (minutes) => {
-    if (minutes <= 0) return 'N/A';
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    if (hours === 0) {
-      return `${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
-    } else if (remainingMinutes === 0) {
-      return `${hours} hour${hours !== 1 ? 's' : ''}`;
-    } else {
-      return `${hours} hour${hours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
-    }
-  };
 
   const sectionHasContent = (index) => {
     switch (index) {
@@ -386,6 +363,18 @@ const SessionWizard = () => {
     }
 
     if (isSaving) return;
+
+    // TherEx/TherAct minutes are what the exported note bills; zero is
+    // almost always a missed field
+    if (therExMinutes + therActMinutes === 0) {
+      const saveAnyway = await confirm({
+        title: 'No treatment minutes',
+        message: 'TherEx and TherAct are both 0. The exported note will show no billable minutes. Save anyway?',
+        confirmLabel: 'Save anyway'
+      });
+      if (!saveAnyway) return;
+    }
+
     setIsSaving(true);
     try {
       // Save the session BEFORE showing the completion screen
@@ -435,11 +424,11 @@ const SessionWizard = () => {
         <button
           type="button"
           onClick={() => setPeekOpen(!peekOpen)}
-          className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+          className="w-full min-h-[44px] flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
         >
           <span className="flex items-center gap-2">
             <History size={16} />
-            Last session — {formatDate(lastSession.sessionDate)}
+            Last session — {formatMediumDate(lastSession.sessionDate)}
           </span>
           {peekOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
@@ -464,109 +453,55 @@ const SessionWizard = () => {
     );
   };
 
+  // Steps 1-5 only (Subjective through Review); the old start screen and the
+  // Complete screen are not steps she can jump to
+  const indicatorSteps = [1, 2, 3, 4, 5];
+
   const renderStepIndicator = () => (
-    <div className="mb-8 overflow-x-auto">
+    <div className="mb-6 sm:mb-8">
       <div className="flex items-center justify-between max-w-4xl mx-auto">
-        {steps.map((step, index) => {
+        {indicatorSteps.map((index) => {
+          const step = steps[index];
           const Icon = step.icon;
           const isActive = index === currentStep;
           const isCompleted = index < currentStep;
           const hasContent = sectionHasContent(index);
 
-          // Hide the Calendar step from breadcrumbs; start at Subjective
-          if (index === 0) return null;
-
-  return (
-            <div key={index} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
+          return (
+            <div key={index} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center">
                 <button
-                  onClick={() => index !== 6 && setCurrentStep(index)}
-                  disabled={index === 6}
-                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${
+                  onClick={() => setCurrentStep(index)}
+                  aria-label={step.name}
+                  aria-current={isActive ? 'step' : undefined}
+                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-lg scale-110'
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : hasContent
                       ? 'bg-green-600 text-white hover:bg-green-700'
                       : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
-                  } ${index === 6 ? 'cursor-not-allowed opacity-50' : ''}`}
+                  }`}
                 >
-                  <Icon size={24} />
+                  <Icon size={20} />
                 </button>
-                <span className={`hidden sm:block mt-2 text-xs font-medium ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
+                <span className={`hidden sm:block mt-2 text-sm font-medium ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
                   {step.name}
                 </span>
               </div>
-              {index < steps.length - 1 && (
+              {index < 5 && (
                 <div
-                  className={`h-1 flex-1 mx-2 transition-all ${
+                  className={`h-1 flex-1 mx-1 sm:mx-2 transition-all ${
                     isCompleted ? 'bg-green-600' : 'bg-gray-300'
                   }`}
-                  style={{ width: '100%', maxWidth: '60px' }}
                 />
               )}
             </div>
           );
         })}
       </div>
-    </div>
-  );
-
-  const renderCalendarStep = () => (
-    <div className="max-w-5xl mx-auto">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Select Patient & Session</h2>
-
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-gray-700">Session Date</h3>
-          <div className="flex items-center gap-2">
-            <Calendar className="text-blue-600" size={24} />
-            <span className="text-lg font-medium text-gray-700">{formatDate(selectedDate)}</span>
-          </div>
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Session Date</label>
-          <input
-            type="date"
-            value={toDateInputValue(selectedDate)}
-            onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-semibold text-gray-700 mb-4">Patient</h3>
-        {patient ? (
-          <div className="p-6 rounded-lg border-2 border-blue-600 bg-blue-50">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h4 className="text-lg font-bold text-gray-800">{patient.firstName} {patient.lastName}</h4>
-                <p className="text-sm text-gray-600 mt-1">Age: {Math.floor((new Date() - new Date(patient.dob)) / (365.25 * 24 * 60 * 60 * 1000))} years</p>
-                <p className="text-sm text-gray-600">Diagnosis: {patient.diagnosis}</p>
-                <p className="text-xs text-gray-500 mt-2">Last session: {patient.lastSessionDate ? new Date(patient.lastSessionDate).toLocaleDateString() : 'No sessions yet'}</p>
-              </div>
-              <Check className="text-blue-600" size={28} />
-            </div>
-          </div>
-        ) : (
-          <p>Patient not found</p>
-        )}
-      </div>
-
-      <div className="flex justify-end mt-6">
-        <button
-          onClick={handleNextStep}
-          disabled={!patient}
-          className={`px-8 py-4 rounded-lg font-semibold text-lg flex items-center gap-2 transition-all ${
-            patient
-              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Start Session
-          <ChevronRight size={24} />
-        </button>
-      </div>
+      <p className="sm:hidden text-sm text-gray-600 text-center mt-3">
+        Step {currentStep} of 5: {steps[currentStep].name}
+      </p>
     </div>
   );
 
@@ -579,6 +514,35 @@ const SessionWizard = () => {
         <div className="mb-4 pb-4 border-b">
           <h3 className="text-lg font-semibold text-gray-700">Patient: {patient?.firstName} {patient?.lastName}</h3>
           <p className="text-sm text-gray-600">{patient?.diagnosis}</p>
+        </div>
+
+        {/* Session time up front, while the session is fresh */}
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="subjective-start" className="block text-sm text-gray-600 mb-1">Session start</label>
+            <input
+              id="subjective-start"
+              type="time"
+              value={sessionStartTime}
+              onChange={(e) => setSessionStartTime(e.target.value)}
+              className="min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="subjective-end" className="block text-sm text-gray-600 mb-1">Session end</label>
+            <input
+              id="subjective-end"
+              type="time"
+              value={sessionEndTime}
+              onChange={(e) => setSessionEndTime(e.target.value)}
+              className="min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {getSessionDurationMinutes(sessionStartTime, sessionEndTime) > 0 && (
+            <p className="min-h-[44px] flex items-center text-sm text-gray-600">
+              {getSessionDurationMinutes(sessionStartTime, sessionEndTime)} min
+            </p>
+          )}
         </div>
 
         {renderLastSessionPeek('subjective')}
@@ -599,7 +563,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
+      <div className="flex justify-between gap-3 sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -670,7 +634,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
+      <div className="flex justify-between gap-3 sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -732,7 +696,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
+      <div className="flex justify-between gap-3 sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -779,7 +743,7 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
+      <div className="flex justify-between gap-3 sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -806,68 +770,70 @@ const SessionWizard = () => {
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="mb-6 pb-4 border-b-2">
           <h3 className="text-2xl font-bold text-gray-800">{patient?.firstName} {patient?.lastName}</h3>
-          <p className="text-sm text-gray-600 mt-1">{patient?.diagnosis} • Age {patient ? Math.floor((new Date() - new Date(patient.dob)) / (365.25 * 24 * 60 * 60 * 1000)) : 0} years</p>
+          <p className="text-sm text-gray-600 mt-1">{patient?.diagnosis} • Age {formatAge(patient?.dob)}</p>
           <div className="mt-4 space-y-2">
             <p className="text-sm text-gray-600">
-              <strong>Session:</strong> {formatDate(selectedDate)} • {formatTime(sessionStartTime)} - {formatTime(sessionEndTime)}
+              <strong>Session:</strong> {formatMediumDate(selectedDate)} • {formatTime(sessionStartTime)} - {formatTime(sessionEndTime)}
               {getSessionDurationMinutes(sessionStartTime, sessionEndTime) > 0 && (
                 <span className="ml-2 text-blue-600">({formatDuration(getSessionDurationMinutes(sessionStartTime, sessionEndTime))})</span>
               )}
             </p>
-            <div className="flex flex-wrap gap-4">
-              <input
-                type="date"
-                value={toDateInputValue(selectedDate)}
-                onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <div className="flex flex-wrap gap-2">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    value={sessionStartTime}
-                    onChange={(e) => setSessionStartTime(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">End Time</label>
-                  <input
-                    type="time"
-                    value={sessionEndTime}
-                    onChange={(e) => setSessionEndTime(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="col-span-2 sm:col-span-1">
+                <label htmlFor="review-date" className="block text-sm text-gray-600 mb-1">Date</label>
+                <input
+                  id="review-date"
+                  type="date"
+                  value={toDateInputValue(selectedDate)}
+                  onChange={(e) => { if (e.target.value) setSelectedDate(parseAppDate(e.target.value)); }}
+                  className="w-full min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="review-start" className="block text-sm text-gray-600 mb-1">Start Time</label>
+                <input
+                  id="review-start"
+                  type="time"
+                  value={sessionStartTime}
+                  onChange={(e) => setSessionStartTime(e.target.value)}
+                  className="w-full min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="review-end" className="block text-sm text-gray-600 mb-1">End Time</label>
+                <input
+                  id="review-end"
+                  type="time"
+                  value={sessionEndTime}
+                  onChange={(e) => setSessionEndTime(e.target.value)}
+                  className="w-full min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
-            <div className="flex gap-4 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">TherEx</label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0"
-                    value={therExMinutes}
-                    onChange={(e) => setTherExMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
-                  />
-                  <span className="text-sm text-gray-600">minutes</span>
-                </div>
+                <label htmlFor="review-therex" className="block text-sm text-gray-600 mb-1">TherEx (min)</label>
+                <input
+                  id="review-therex"
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={therExMinutes}
+                  onChange={handleMinutesChange(setTherExMinutes)}
+                  className="w-full min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">TherAct</label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0"
-                    value={therActMinutes}
-                    onChange={(e) => setTherActMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
-                  />
-                  <span className="text-sm text-gray-600">minutes</span>
-                </div>
+                <label htmlFor="review-theract" className="block text-sm text-gray-600 mb-1">TherAct (min)</label>
+                <input
+                  id="review-theract"
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={therActMinutes}
+                  onChange={handleMinutesChange(setTherActMinutes)}
+                  className="w-full min-h-[44px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
             {(() => {
@@ -920,13 +886,14 @@ const SessionWizard = () => {
         </div>
       </div>
 
-      <div className="flex justify-between sticky bottom-0 bg-gray-100 py-3">
+      <div className="flex justify-between gap-3 sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0 bg-gray-100 py-3">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 flex items-center gap-2"
         >
           <ChevronLeft size={20} />
-          Back to Edit
+          <span className="sm:hidden">Back</span>
+          <span className="hidden sm:inline">Back to Edit</span>
         </button>
         <button
           onClick={handleValidatedSave}
@@ -961,7 +928,7 @@ const SessionWizard = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Date & Time</p>
-              <p className="font-semibold text-gray-800">{formatDate(selectedDate)} • {formatTime(sessionStartTime)} - {formatTime(sessionEndTime)}</p>
+              <p className="font-semibold text-gray-800">{formatMediumDate(selectedDate)} • {formatTime(sessionStartTime)} - {formatTime(sessionEndTime)}</p>
               {getSessionDurationMinutes(sessionStartTime, sessionEndTime) > 0 && (
                 <p className="text-sm text-blue-600 mt-1">{formatDuration(getSessionDurationMinutes(sessionStartTime, sessionEndTime))}</p>
               )}
@@ -992,8 +959,6 @@ const SessionWizard = () => {
 
   const renderCurrentStep = () => {
     switch (currentStep) {
-      case 0:
-        return renderCalendarStep();
       case 1:
         return renderSubjectiveStep();
       case 2:
@@ -1007,7 +972,7 @@ const SessionWizard = () => {
       case 6:
         return renderCompleteStep();
       default:
-        return renderCalendarStep();
+        return renderSubjectiveStep();
     }
   };
 
@@ -1021,9 +986,9 @@ const SessionWizard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
+    <div className="bg-gray-100 sm:py-4">
       <div className="max-w-6xl mx-auto">
-        {currentStep > 0 && currentStep < 6 && renderStepIndicator()}
+        {currentStep < 6 && renderStepIndicator()}
 
         <main>
           {renderCurrentStep()}
