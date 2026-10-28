@@ -420,3 +420,25 @@ describe('load errors that say what happened', () => {
     expect(await screen.findByText("Couldn't sign out. Check your connection and try again.")).toBeInTheDocument();
   });
 });
+
+describe('a reply lost on the way back', () => {
+  const reordered = (value) => JSON.parse(JSON.stringify(value, Object.keys(value).sort()));
+
+  test('a cloud row that already matches this device counts as saved', async () => {
+    await readyWithCleanCache();
+    updateRow.mockResolvedValue(null);
+    fetchRow.mockResolvedValue({ data: { schools: localData.schools, sessions: localData.sessions, patients: localData.patients, version: '1.4' }, profile: reordered(localProfile), updated_at: 't7' });
+    act(() => sync.notifyChange());
+    await waitFor(() => expect(readSyncMeta()).toMatchObject({ lastSeen: 't7', dirty: false }));
+    expect(screen.queryByText('Continue with the cloud data')).toBeNull();
+    expect(screen.getByText('the app')).toBeInTheDocument();
+  });
+
+  test('a cloud row that really differs still shows the conflict screen', async () => {
+    await readyWithCleanCache();
+    updateRow.mockResolvedValue(null);
+    fetchRow.mockResolvedValue(cloudRow('t7'));
+    act(() => sync.notifyChange());
+    expect(await screen.findByRole('button', { name: 'Continue with the cloud data' })).toBeInTheDocument();
+  });
+});

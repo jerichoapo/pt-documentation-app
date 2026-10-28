@@ -188,3 +188,14 @@ export const describeLoadError = (error) => {
   if (error?.code) return 'refused';
   return 'offline';
 };
+
+// Deep equality that ignores object key order (the cloud stores JSON as
+// jsonb, which reorders keys) but not array order, values, or types.
+export const sameContent = (a, b) => {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) return a.length === b.length && a.every((item, i) => sameContent(item, b[i]));
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => Object.prototype.hasOwnProperty.call(b, key) && sameContent(a[key], b[key]));
+};

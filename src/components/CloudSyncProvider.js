@@ -14,7 +14,8 @@ import {
   chooseLoadPath,
   createPushQueue,
   unsavedWorkWarning,
-  describeLoadError
+  describeLoadError,
+  sameContent
 } from '../data/syncLogic';
 import { downloadTextFile, todayStamp } from '../utils/download';
 import SyncScreens from './SyncScreens';
@@ -113,10 +114,18 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     }
   }, [recordSynced, notifyChange]);
 
-  const showConflictWithFreshRow = useCallback(async () => {
+  // A guarded write found the row changed. If the cloud already holds exactly
+  // this device's data (the reply to an earlier write was lost on the way
+  // back), return the row so the caller records it as saved. Otherwise
+  // another device wrote: show the conflict screen and return null.
+  const resolveRejectedPush = useCallback(async () => {
     const row = await fetchRow(userId);
     if (!row) throw new Error('ROW_MISSING');
+    const { data, profile, profileUnreadable } = readLocalSnapshot();
+    const profileMatches = profileUnreadable || sameContent(row.profile, profile || {});
+    if (sameContent(row.data, data) && profileMatches) return row;
     showGate({ kind: 'conflict', row });
+    return null;
   }, [userId, showGate]);
 
   pushRef.current = async () => {
@@ -128,7 +137,8 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     try {
       const updatedAt = await updateRow(userId, data, profileUnreadable ? undefined : profile, readSyncMeta().lastSeen);
       if (updatedAt === null) {
-        await showConflictWithFreshRow();
+        const saved = await resolveRejectedPush();
+        if (saved) recordSynced(saved.updated_at, sentChange === changeCountRef.current ? { dirty: false } : {});
         return;
       }
       recordSynced(updatedAt, sentChange === changeCountRef.current ? { dirty: false } : {});
@@ -253,7 +263,11 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
         const profile = snapshot.profileUnreadable ? undefined : snapshot.profile;
         const updatedAt = await updateRow(userId, snapshot.data, profile, meta.lastSeen);
         if (updatedAt === null) {
-          await showConflictWithFreshRow();
+          const saved = await resolveRejectedPush();
+          if (saved) {
+            recordSynced(saved.updated_at, { dirty: false });
+            showGate({ kind: 'ready' });
+          }
           return;
         }
         recordSynced(updatedAt, { dirty: false });
@@ -265,7 +279,7 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     } catch (error) {
       showError(error);
     }
-  }, [userId, applyRow, recordSynced, showGate, showError, showConflictWithFreshRow, startFresh]);
+  }, [userId, applyRow, recordSynced, showGate, showError, resolveRejectedPush, startFresh]);
 
   useEffect(() => {
     // StrictMode runs effects twice in development; load once per user

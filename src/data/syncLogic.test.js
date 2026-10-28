@@ -10,7 +10,8 @@ import {
   createPushQueue,
   describeLastSynced,
   unsavedWorkWarning,
-  describeLoadError
+  describeLoadError,
+  sameContent
 } from './syncLogic';
 
 const flush = async () => {
@@ -286,5 +287,25 @@ describe('describeLoadError', () => {
     ['a database refusal', { code: '23502', message: 'null value' }, 'refused']
   ])('%s', (_, error, expected) => {
     expect(describeLoadError(error)).toBe(expected);
+  });
+});
+
+describe('sameContent', () => {
+  test('ignores the order of object keys, as the cloud reorders them', () => {
+    expect(sameContent({ a: 1, b: [{ x: 1, y: 2 }] }, { b: [{ y: 2, x: 1 }], a: 1 })).toBe(true);
+  });
+
+  test.each([
+    ['array items swapped', { a: [1, 2] }, { a: [2, 1] }],
+    ['a changed value', { a: 'x' }, { a: 'y' }],
+    ['a number against a string', { a: 1 }, { a: '1' }],
+    ['an extra key', { a: 1 }, { a: 1, b: 2 }],
+    ['null against an object', null, {}]
+  ])('tells %s apart', (_, a, b) => {
+    expect(sameContent(a, b)).toBe(false);
+  });
+
+  test('treats two nulls as the same', () => {
+    expect(sameContent(null, null)).toBe(true);
   });
 });
