@@ -22,10 +22,12 @@ import BottomNav from './components/BottomNav';
 import SyncBanner from './components/SyncBanner';
 import { usePatientData } from './context/PatientDataContext';
 import { useConfirm } from './context/ConfirmContext';
+import { useSync } from './context/SyncContext';
 
 const App = () => {
   const { error, clearError, clearAllData, exportData } = usePatientData();
   const confirm = useConfirm();
+  const { reloadFromCloud } = useSync();
   const handleClearData = async () => {
     const confirmed = await confirm({
       title: 'Delete all data?',
@@ -86,6 +88,10 @@ const App = () => {
         onClearData={handleClearData}
         onExportData={handleExportData}
         onDismiss={clearError}
+        onReloadFromCloud={() => {
+          clearError();
+          reloadFromCloud();
+        }}
       />
     </div>
   );

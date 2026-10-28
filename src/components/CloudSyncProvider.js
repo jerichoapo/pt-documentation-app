@@ -318,9 +318,11 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     }
   };
 
+  // The device's data and provider profile, in the format Settings imports
   const downloadDeviceBackup = () => {
-    const { data } = readLocalSnapshot();
-    downloadTextFile(`pt-app-device-backup-${todayStamp()}.json`, store.exportData(data || {}), 'application/json');
+    const { data, profile } = readLocalSnapshot();
+    const backup = { ...JSON.parse(store.exportData(data || {})), profile: profile || {} };
+    downloadTextFile(`pt-app-device-backup-${todayStamp()}.json`, JSON.stringify(backup, null, 2), 'application/json');
   };
 
   const uploadLocal = async () => {
@@ -469,6 +471,15 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
 
   const getCacheVersion = useCallback(() => cacheVersionRef.current, []);
 
+  // Drops this device's copy and downloads the cloud row again, for when the
+  // copy is damaged
+  const reloadFromCloud = useCallback(async () => {
+    localStorage.removeItem(DATA_KEY);
+    localStorage.removeItem(PROFILE_KEY);
+    writeSyncMeta({ lastSeen: null, dirty: false });
+    await load();
+  }, [load]);
+
   // The check in progress, if any, capped at 3 seconds so a slow network
   // never blocks a save for long. Null when nothing is running.
   const waitForCatchUp = useCallback(() => {
@@ -493,8 +504,9 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     endEdit,
     adoptHeldData,
     getCacheVersion,
-    waitForCatchUp
-  }), [notifyChange, revision, status, lastSyncedAt, retryPush, beginEdit, endEdit, adoptHeldData, getCacheVersion, waitForCatchUp]);
+    waitForCatchUp,
+    reloadFromCloud
+  }), [notifyChange, revision, status, lastSyncedAt, retryPush, beginEdit, endEdit, adoptHeldData, getCacheVersion, waitForCatchUp, reloadFromCloud]);
 
   if (gate.kind !== 'ready') {
     return (

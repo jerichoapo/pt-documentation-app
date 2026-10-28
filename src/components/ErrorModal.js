@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Download, RotateCcw } from 'lucide-react';
 
-const ErrorModal = ({ error, onClearData, onExportData, onDismiss }) => {
+const ErrorModal = ({ error, onClearData, onExportData, onDismiss, onReloadFromCloud }) => {
   if (!error) return null;
 
   const handleExport = () => {
@@ -31,20 +31,28 @@ const ErrorModal = ({ error, onClearData, onExportData, onDismiss }) => {
           {error.type === 'CORRUPTION' && (
             <div className="space-y-3">
               <p className="text-sm text-gray-600">
-                Your data appears to be corrupted. You can try to export the raw data for recovery,
-                or start fresh (this will delete all existing data).
+                The copy of your data on this device can't be read. Reload it from the cloud first.
+                If that doesn't help, export the raw data for recovery. Start Fresh deletes all data
+                and also empties the cloud.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={onReloadFromCloud}
+                  className="flex items-center gap-2 min-h-[44px] bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  <RotateCcw size={16} />
+                  Reload from the cloud
+                </button>
                 <button
                   onClick={handleExport}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                  className="flex items-center gap-2 min-h-[44px] bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm"
                 >
                   <Download size={16} />
                   Export Data
                 </button>
                 <button
                   onClick={onClearData}
-                  className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
+                  className="flex items-center gap-2 min-h-[44px] bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
                 >
                   <RotateCcw size={16} />
                   Start Fresh

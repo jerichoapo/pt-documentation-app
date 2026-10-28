@@ -14,7 +14,8 @@ const defaultValue = {
   endEdit: noop,
   adoptHeldData: () => null,
   getCacheVersion: () => 0,
-  waitForCatchUp: () => null
+  waitForCatchUp: () => null,
+  reloadFromCloud: noop
 };
 
 export const SyncContext = createContext(defaultValue);

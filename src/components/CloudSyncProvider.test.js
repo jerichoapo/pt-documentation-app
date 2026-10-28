@@ -442,3 +442,30 @@ describe('a reply lost on the way back', () => {
     expect(await screen.findByRole('button', { name: 'Continue with the cloud data' })).toBeInTheDocument();
   });
 });
+
+describe('backups keep the profile, and reloading from the cloud', () => {
+  const download = require('../utils/download');
+
+  test("the conflict screen's download includes this device's profile", async () => {
+    const save = jest.spyOn(download, 'downloadTextFile').mockImplementation(() => {});
+    seed({ data: localData, profile: localProfile, meta: { lastSeen: 't0', dirty: true } });
+    fetchRow.mockResolvedValue(cloudRow('t1'));
+    renderProvider();
+    fireEvent.click(await screen.findByRole('button', { name: "Download this device's data" }));
+    const saved = JSON.parse(save.mock.calls[0][1]);
+    expect(saved.profile).toEqual(localProfile);
+    expect(saved.patients).toHaveLength(4);
+    save.mockRestore();
+  });
+
+  test('reloadFromCloud downloads the row again and replaces the cache', async () => {
+    await readyWithCleanCache();
+    fetchRow.mockResolvedValue(cloudRow('t9'));
+    localStorage.setItem('ptAppData', '{damaged');
+    await act(async () => {
+      await sync.reloadFromCloud();
+    });
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('ptAppData'))).toEqual(cloudData));
+    expect(screen.getByText('the app')).toBeInTheDocument();
+  });
+});

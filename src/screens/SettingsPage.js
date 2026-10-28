@@ -6,11 +6,12 @@ import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useAuth } from '../context/AuthContext';
 import { useSync } from '../context/SyncContext';
+import { useProfile } from '../context/ProfileContext';
 import { unsavedWorkWarning, describeLastSynced } from '../data/syncLogic';
 import { getAppMeta, setAppMeta, daysSince } from '../utils/appMeta';
 import { formatShortDate } from '../utils/sessionFormatting';
 import { buildNotesCsv, csvFileName } from '../utils/notesCsv';
-import { downloadTextFile } from '../utils/download';
+import { downloadTextFile, todayStamp } from '../utils/download';
 import BackLink from '../components/BackLink';
 
 const activeCounts = (data) => ({
@@ -28,23 +29,17 @@ const SettingsPage = () => {
   const confirm = useConfirm();
   const { user, signOut } = useAuth();
   const { status: syncStatus, lastSyncedAt } = useSync();
+  const { profile, updateProfile } = useProfile();
   const fileInputRef = useRef(null);
   const [lastBackupAt, setLastBackupAt] = useState(getAppMeta().lastBackupAt || null);
   const [isImporting, setIsImporting] = useState(false);
 
   const current = activeCounts({ patients, sessions, schools: schools || [] });
 
+  // The data plus the provider profile, so a restore brings back the signature
   const handleDownloadBackup = () => {
-    const json = exportData();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pt-app-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const backup = { ...JSON.parse(exportData()), profile };
+    downloadTextFile(`pt-app-backup-${todayStamp()}.json`, JSON.stringify(backup, null, 2), 'application/json');
 
     const now = new Date().toISOString();
     setAppMeta({ lastBackupAt: now });
@@ -77,10 +72,11 @@ const SettingsPage = () => {
       schools: Array.isArray(parsed.schools) ? parsed.schools : []
     });
 
+    const hasProfile = Boolean(parsed.profile) && typeof parsed.profile === 'object';
     const confirmed = await confirm({
       title: 'Replace all data with this backup?',
       message:
-        `This replaces everything currently in the app.\n\n` +
+        `This replaces everything currently in the app${hasProfile ? ', including your provider profile' : ''}.\n\n` +
         `Current: ${countsLine(current)}\n` +
         `Backup: ${countsLine(incoming)}`,
       confirmLabel: 'Replace Data',
@@ -91,6 +87,7 @@ const SettingsPage = () => {
     setIsImporting(true);
     try {
       await importData(parsed);
+      if (hasProfile) await updateProfile(parsed.profile);
     } catch (error) {
       // Toast shown by the context
     } finally {
