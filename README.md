@@ -49,7 +49,7 @@ npm start          # dev server on http://localhost:3000
 Other commands:
 
 ```bash
-CI=true npx react-scripts test --watchAll=false   # unit tests (62 tests)
+CI=true npx react-scripts test --watchAll=false   # unit tests (66 tests)
 CI=true npm run build                             # production build; CI mode fails on lint warnings
 npm run audit:phone                               # with npm start running: phone-width layout check
 ```

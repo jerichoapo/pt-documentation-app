@@ -410,8 +410,9 @@ with unit tests. File name `pt-app-notes-YYYY-MM-DD.csv`, or
 
 1. Create a free account at supabase.com and a new project. Pick a US region,
    set a database password, and keep it somewhere safe.
-2. Install the Supabase CLI (`scoop install supabase` or
-   `npm install -g supabase` in PowerShell) and run `supabase login` once.
+2. Run `npx supabase login` once in a PowerShell terminal. Node already
+   provides `npx`, so there is nothing to install; the CLI does not support a
+   global `npm install -g`.
 3. Give the designer the project reference (the short id in the project's
    URL). Everything else runs from the repo.
 4. After the build: open the app on the phone and the laptop, sign in with the

@@ -77,7 +77,7 @@ PDF/DOCX for the district/clinic.
 Bug-fix pass (commit `87b30bd`) plus all four roadmap phases are built:
 backup/restore + drafts + ConfirmModal (Phase 1), copy-forward + last-note peek
 (Phase 2), caseload search/grouping + nav + tablet pass (Phase 3), and schema
-1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 62 passing
+1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 66 passing
 tests; CI build clean.
 
 The mobile pass from `docs/ux-audit-2026-10-28.md` is built (plan:
