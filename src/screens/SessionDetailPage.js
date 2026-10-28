@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, Edit2, Save, X, Trash2, Download, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { Calendar, Clock, Edit2, Save, X, Trash2, Download, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { useSession, usePatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { formatDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
+import { formatMediumDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
 import { exportSingleNoteToPDF, exportSingleNoteToDOCX } from '../utils/exportNotes';
 import ExportFormatModal from '../components/ExportFormatModal';
+import BackLink from '../components/BackLink';
 
 const SessionDetailPage = () => {
   const { sessionId } = useParams();
@@ -170,37 +171,33 @@ const SessionDetailPage = () => {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <Link
-          to={`/patients/${patient.id}`}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-        >
-          <ArrowLeft size={20} />
-          Back to {patient.firstName} {patient.lastName}
-        </Link>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <BackLink to={`/patients/${patient.id}`} label={`${patient.firstName} ${patient.lastName}`} />
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {!isEditing ? (
             <>
               <button
                 onClick={() => setIsExportModalOpen(true)}
-                className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 font-medium"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 min-h-[44px] bg-green-100 text-green-700 px-4 rounded-lg hover:bg-green-200 font-medium"
               >
                 <Download size={16} />
-                Download Note
+                <span className="sm:hidden">Download</span>
+                <span className="hidden sm:inline">Download Note</span>
               </button>
               <button
                 onClick={handleStartEdit}
-                className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 font-medium"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 min-h-[44px] bg-blue-100 text-blue-700 px-4 rounded-lg hover:bg-blue-200 font-medium"
               >
                 <Edit2 size={16} />
                 Edit
               </button>
               <button
                 onClick={handleDelete}
-                className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-medium"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 min-h-[44px] bg-red-100 text-red-700 px-4 rounded-lg hover:bg-red-200 font-medium"
               >
                 <Trash2 size={16} />
-                Delete Note
+                <span className="sm:hidden">Delete</span>
+                <span className="hidden sm:inline">Delete Note</span>
               </button>
             </>
           ) : (
@@ -208,7 +205,7 @@ const SessionDetailPage = () => {
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 min-h-[44px] bg-green-100 text-green-700 px-4 rounded-lg hover:bg-green-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save size={16} />
                 {isSaving ? 'Saving...' : 'Save'}
@@ -216,7 +213,7 @@ const SessionDetailPage = () => {
               <button
                 onClick={handleCancelEdit}
                 disabled={isSaving}
-                className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 min-h-[44px] bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X size={16} />
                 Cancel
@@ -234,7 +231,7 @@ const SessionDetailPage = () => {
           <p className="text-lg text-gray-700 mb-4">
             {patient.diagnosis}
           </p>
-          <div className="flex items-center gap-4 text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <Calendar size={16} />
               {isEditing ? (
@@ -242,10 +239,10 @@ const SessionDetailPage = () => {
                   type="date"
                   value={editedSession?.sessionDate || ''}
                   onChange={(e) => updateEditedSession('sessionDate', e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="min-h-[44px] px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <span>{formatDate(session.sessionDate)}</span>
+                <span>{formatMediumDate(session.sessionDate)}</span>
               )}
             </div>
             {(session.amendments || []).length > 0 && (
@@ -259,19 +256,21 @@ const SessionDetailPage = () => {
             <div className="flex items-center gap-2">
               <Clock size={16} />
               {isEditing ? (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="time"
                     value={editedSession?.startTime || ''}
                     onChange={(e) => updateEditedSession('startTime', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Start time"
+                    className="min-h-[44px] px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <span>-</span>
                   <input
                     type="time"
                     value={editedSession?.endTime || ''}
                     onChange={(e) => updateEditedSession('endTime', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="End time"
+                    className="min-h-[44px] px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               ) : (
@@ -286,15 +285,16 @@ const SessionDetailPage = () => {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mt-2">
             <div>
               <strong>TherEx:</strong> {isEditing ? (
                 <input
                   type="number"
                   min="0"
+                  inputMode="numeric"
                   value={editedSession?.therExMinutes || 0}
                   onChange={(e) => updateEditedSession('therExMinutes', Math.max(0, parseInt(e.target.value) || 0))}
-                  className="ml-2 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-16"
+                  className="ml-2 min-h-[44px] px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
                 />
               ) : (
                 <span className="ml-2">{session.therExMinutes || 0} minutes</span>
@@ -305,9 +305,10 @@ const SessionDetailPage = () => {
                 <input
                   type="number"
                   min="0"
+                  inputMode="numeric"
                   value={editedSession?.therActMinutes || 0}
                   onChange={(e) => updateEditedSession('therActMinutes', Math.max(0, parseInt(e.target.value) || 0))}
-                  className="ml-2 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-16"
+                  className="ml-2 min-h-[44px] px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
                 />
               ) : (
                 <span className="ml-2">{session.therActMinutes || 0} minutes</span>
@@ -462,7 +463,7 @@ const SessionDetailPage = () => {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <button
             onClick={() => setHistoryOpen(!historyOpen)}
-            className="w-full flex items-center justify-between"
+            className="w-full min-h-[44px] flex items-center justify-between"
           >
             <span className="flex items-center gap-2 text-lg font-bold text-gray-800">
               <History size={20} className="text-amber-600" />
