@@ -5,6 +5,8 @@ import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { PatientDataProvider } from './context/PatientDataContext';
 import { ProfileProvider } from './context/ProfileContext';
+import { AuthProvider } from './context/AuthContext';
+import AuthGate from './components/AuthGate';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
@@ -15,11 +17,15 @@ root.render(
     <BrowserRouter>
       <ToastProvider>
         <ConfirmProvider>
-          <PatientDataProvider>
-            <ProfileProvider>
-              <App />
-            </ProfileProvider>
-          </PatientDataProvider>
+          <AuthProvider>
+            <AuthGate>
+              <PatientDataProvider>
+                <ProfileProvider>
+                  <App />
+                </ProfileProvider>
+              </PatientDataProvider>
+            </AuthGate>
+          </AuthProvider>
         </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>

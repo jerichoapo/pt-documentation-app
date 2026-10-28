@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Upload, User, ChevronRight, HardDrive, Trash2 } from 'lucide-react';
+import { Download, Upload, User, ChevronRight, HardDrive, Trash2, LogOut, CircleUser } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useAuth } from '../context/AuthContext';
+import { readSyncMeta } from '../data/syncLogic';
 import { getAppMeta, setAppMeta, daysSince } from '../utils/appMeta';
 import { formatShortDate } from '../utils/sessionFormatting';
 import BackLink from '../components/BackLink';
@@ -21,6 +23,7 @@ const SettingsPage = () => {
   const { patients, sessions, schools, exportData, importData } = usePatientData();
   const { addToast } = useToastContext();
   const confirm = useConfirm();
+  const { user, signOut } = useAuth();
   const fileInputRef = useRef(null);
   const [lastBackupAt, setLastBackupAt] = useState(getAppMeta().lastBackupAt || null);
   const [isImporting, setIsImporting] = useState(false);
@@ -91,6 +94,22 @@ const SettingsPage = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    if (readSyncMeta().dirty) {
+      const confirmed = await confirm({
+        title: 'Sign out with unsaved changes?',
+        message: "Some changes on this device haven't reached the cloud yet. If you sign out now, they're lost.",
+        confirmLabel: 'Sign out anyway',
+        danger: true
+      });
+      if (!confirmed) return;
+    }
+    const { error } = await signOut();
+    if (error) {
+      addToast("Couldn't sign out. Check your connection and try again.", 'error');
+    }
+  };
+
   const backupAge = daysSince(lastBackupAt);
 
   return (
@@ -100,6 +119,22 @@ const SettingsPage = () => {
       </div>
 
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Settings</h1>
+
+      {/* Account */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <CircleUser className="text-gray-500" size={20} />
+          <h2 className="text-xl font-semibold text-gray-800">Account</h2>
+        </div>
+        <p className="text-sm text-gray-600 mb-4 break-words">Signed in as {user?.email}</p>
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-2 min-h-[44px] bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium"
+        >
+          <LogOut size={18} />
+          Sign out
+        </button>
+      </div>
 
       {/* Data section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
