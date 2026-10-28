@@ -1,7 +1,20 @@
 // Vercel Cron calls this once a day (see vercel.json). Reading the table
 // counts as activity, so the free Supabase project never pauses over a
 // school break. The secret key lives only in Vercel's environment variables.
+// Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`; anyone else is
+// refused. Without the secret set, it refuses everyone, so a missing variable
+// shows up as a failed cron run rather than an open endpoint.
 module.exports = async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    res.status(500).json({ ok: false, error: 'CRON_SECRET is missing' });
+    return;
+  }
+  if ((req.headers || {}).authorization !== `Bearer ${cronSecret}`) {
+    res.status(401).json({ ok: false, error: 'Unauthorized' });
+    return;
+  }
+
   const url = process.env.REACT_APP_SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {

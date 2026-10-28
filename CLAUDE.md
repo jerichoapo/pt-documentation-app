@@ -53,11 +53,13 @@ PDF/DOCX/CSV or copy it as text.
 - `src/context/AuthContext.js`, `src/components/AuthGate.js` — Supabase session and the
   login-only routing. `src/data/supabaseClient.js` creates the client lazily.
 - `supabase/migrations/` — the `app_data` table, RLS, the trigger that stamps
-  `updated_at`, and the dashboard views. `api/keep-alive.js` is the daily Vercel cron.
+  `updated_at`, and the dashboard views. `api/keep-alive.js` is the daily Vercel cron; it answers only
+  `Authorization: Bearer $CRON_SECRET` and refuses everyone when that variable is unset.
 - `public/service-worker.js` — navigation network-first; it never touches Supabase.
 - Env files (git-ignored): `.env.local` (`REACT_APP_SUPABASE_URL`,
   `REACT_APP_SUPABASE_PUBLISHABLE_KEY`) and `.env.audit.local` (`AUDIT_EMAIL`,
-  `AUDIT_PASSWORD`, plus the URL, publishable key, and `SUPABASE_SECRET_KEY` for checks).
+  `AUDIT_PASSWORD`, plus the URL, publishable key, `SUPABASE_SECRET_KEY`, and `CRON_SECRET`
+  for checks). Throwaway checks touch only the audit account's row (`user_id=eq.<uid>`).
   The secret key must never reach `src/`.
 - `package.json` `jest.moduleNameMapper` points React Router 7 at its CommonJS build
   and `setupTests.js` polyfills TextEncoder. Without both, any test that renders a
@@ -114,7 +116,7 @@ PDF/DOCX/CSV or copy it as text.
 Bug-fix pass (commit `87b30bd`) plus all four roadmap phases are built:
 backup/restore + drafts + ConfirmModal (Phase 1), copy-forward + last-note peek
 (Phase 2), caseload search/grouping + nav + tablet pass (Phase 3), and schema
-1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 149 passing
+1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 190 passing
 tests; CI build clean.
 
 The mobile pass from `docs/ux-audit-2026-10-28.md` is built (plan:

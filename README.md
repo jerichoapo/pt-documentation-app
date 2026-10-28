@@ -56,7 +56,10 @@ The app needs a Supabase project to sign in to. To set one up for your own copy:
 2. From this folder, run `npx supabase login`, then
    `npx supabase link --project-ref <your-project-ref>` and
    `npx supabase db push` to create the table, its access rules, and the views.
-   `npx supabase config push` turns public sign-up off.
+   Before `npx supabase config push`, which turns public sign-up off, set
+   `site_url` and `additional_redirect_urls` in `supabase/config.toml` to your
+   own app's address and run `npx supabase config diff` to see exactly what
+   will change. The file holds this project's settings, not yours.
 3. Create your login in the Supabase dashboard under **Authentication** >
    **Users** > **Add user**, with **Auto Confirm User** checked.
 4. Put the project URL and publishable key in `.env.local`:
@@ -76,7 +79,7 @@ npm start          # dev server on http://localhost:3000
 Other commands:
 
 ```bash
-CI=true npx react-scripts test --watchAll=false   # unit tests (149 tests)
+CI=true npx react-scripts test --watchAll=false   # unit tests (190 tests)
 CI=true npm run build                             # production build; CI mode fails on lint warnings
 npm run audit:phone                               # with npm start running: phone-width layout check
 ```
@@ -119,7 +122,8 @@ one tab shows in the others.
 
 Supabase pauses a free project after seven days without activity. A Vercel cron
 job (`api/keep-alive.js`, daily) reads the table so that never happens. The
-secret key it uses lives only in Vercel's environment variables.
+secret key it uses lives only in Vercel's environment variables, and the
+function answers only a call carrying `CRON_SECRET`, which Vercel Cron sends.
 
 The app adds no encryption beyond what Supabase provides.
 
@@ -151,10 +155,11 @@ Tailwind CSS 3, lucide-react icons, pdfmake, docx, and supabase-js.
 
 Hosted on Vercel. [vercel.json](vercel.json) rewrites non-asset paths to
 `index.html` so react-router deep links survive a refresh, and schedules the
-daily keep-alive. Vercel needs three environment variables:
+daily keep-alive. Vercel needs four environment variables:
 `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` (public by
-design; row-level security protects the data) and `SUPABASE_SECRET_KEY` (for the
-keep-alive only, never sent to the browser).
+design; row-level security protects the data), `SUPABASE_SECRET_KEY` (for the
+keep-alive only, never sent to the browser), and `CRON_SECRET` (any long random
+string; Vercel Cron sends it, and the keep-alive refuses calls without it).
 
 ## Disclaimer
 

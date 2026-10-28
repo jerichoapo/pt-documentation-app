@@ -25,12 +25,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || request.mode !== 'navigate') return;
-  if (new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   event.respondWith((async () => {
     try {
       const response = await fetch(request);
-      if (response.ok) {
+      // Only a real page becomes the offline fallback, never a JSON file or
+      // image someone opened directly
+      const isPage = (response.headers.get('content-type') || '').includes('text/html');
+      if (response.ok && isPage) {
         const cache = await caches.open(CACHE);
         await cache.put('/index.html', response.clone());
       }
