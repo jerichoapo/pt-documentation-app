@@ -4,6 +4,7 @@ import { Calendar, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Check, Edi
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useEditingHold } from '../context/SyncContext';
 import { parseAppDate, toDateInputValue, formatMediumDate, formatAge, formatTime, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
 import { defaultSessionTimes, defaultMinutes, splitMinutes } from '../utils/sessionDefaults';
 
@@ -41,6 +42,8 @@ const SessionWizard = () => {
   const { getPatientById, getSessionById, getSessionsForPatient, addSession } = usePatientData();
   const { addToast } = useToastContext();
   const confirm = useConfirm();
+  // Hold changes from the other device until this screen closes
+  useEditingHold(true);
 
   // Extract referrer, pre-selected date, and copy-forward source from query parameters
   const searchParams = new URLSearchParams(location.search);

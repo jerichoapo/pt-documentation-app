@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SyncContext } from '../context/SyncContext';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useToastContext } from '../context/ToastContext';
 import { store } from '../data/store';
-import { fetchRow, insertRow, updateRow, replaceRow } from '../data/cloud';
+import { fetchRow, insertRow, updateRow, replaceRow, subscribeToRow } from '../data/cloud';
 import {
   readSyncMeta,
   writeSyncMeta,
@@ -46,9 +47,10 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
   const { user, signOut } = useAuth();
   const userId = user.id;
   const confirm = useConfirm();
+  const { addToast } = useToastContext();
 
   const [gate, setGate] = useState({ kind: 'loading' });
-  const [revision] = useState(0);
+  const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState('saved');
   const [lastSyncedAt, setLastSyncedAt] = useState(() => readSyncMeta().lastSyncedAt);
   const [isWorking, setIsWorking] = useState(false);
@@ -60,6 +62,10 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
   const loadedForRef = useRef(null);
   const pushRef = useRef(null);
   const queueOptionsRef = useRef({ pushDelayMs, retryDelaysMs });
+  const heldRowRef = useRef(null);
+  const pushInFlightRef = useRef(false);
+  const recheckAfterPushRef = useRef(false);
+  const checkRef = useRef(null);
 
   const showGate = useCallback((next) => {
     gateKindRef.current = next.kind;
@@ -100,12 +106,61 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     const { data, profile } = readLocalSnapshot();
     if (!data) return;
     const sentChange = changeCountRef.current;
-    const updatedAt = await updateRow(userId, data, profile, readSyncMeta().lastSeen);
-    if (updatedAt === null) {
-      await showConflictWithFreshRow();
+    pushInFlightRef.current = true;
+    try {
+      const updatedAt = await updateRow(userId, data, profile, readSyncMeta().lastSeen);
+      if (updatedAt === null) {
+        await showConflictWithFreshRow();
+        return;
+      }
+      recordSynced(updatedAt, sentChange === changeCountRef.current ? { dirty: false } : {});
+    } finally {
+      pushInFlightRef.current = false;
+      if (recheckAfterPushRef.current) {
+        recheckAfterPushRef.current = false;
+        checkRef.current(null);
+      }
+    }
+  };
+
+  // Replace the cache with a newer row from the other device and tell the
+  // data contexts to reload it.
+  const applyIncoming = useCallback((row) => {
+    applyRow(row);
+    setRevision((r) => r + 1);
+    addToast('Updated from your other device', 'info');
+  }, [applyRow, addToast]);
+
+  // Runs on a Realtime signal, when the app comes back into view, and when
+  // the connection returns. A signal carrying the updated_at this device
+  // already has is its own push echoing back. While a push is in flight the
+  // check waits for it, so the echo is never mistaken for the other device.
+  checkRef.current = async (signalUpdatedAt) => {
+    if (gateKindRef.current !== 'ready') return;
+    if (signalUpdatedAt && signalUpdatedAt === readSyncMeta().lastSeen) return;
+    if (pushInFlightRef.current) {
+      recheckAfterPushRef.current = true;
       return;
     }
-    recordSynced(updatedAt, sentChange === changeCountRef.current ? { dirty: false } : {});
+    let row;
+    try {
+      row = await fetchRow(userId);
+    } catch (error) {
+      return; // The next signal or visit tries again
+    }
+    if (!row || row.updated_at === readSyncMeta().lastSeen) return;
+    if (pushInFlightRef.current) {
+      recheckAfterPushRef.current = true;
+      return;
+    }
+    // An unsent change here and a newer row there: the pending push meets
+    // the newer row and shows the conflict screen.
+    if (readSyncMeta().dirty) return;
+    if (editCountRef.current > 0) {
+      heldRowRef.current = row;
+      return;
+    }
+    applyIncoming(row);
   };
 
   useEffect(() => {
@@ -255,15 +310,49 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     await signOut();
   };
 
+  useEffect(() => {
+    if (gate.kind !== 'ready') return undefined;
+    const unsubscribe = subscribeToRow(userId, (updatedAt) => checkRef.current(updatedAt));
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkRef.current(null);
+    };
+    const onOnline = () => checkRef.current(null);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [gate.kind, userId]);
+
   const beginEdit = useCallback(() => {
     editCountRef.current += 1;
   }, []);
 
   const endEdit = useCallback(() => {
     editCountRef.current = Math.max(0, editCountRef.current - 1);
-  }, []);
+    if (editCountRef.current === 0 && heldRowRef.current) {
+      const row = heldRowRef.current;
+      heldRowRef.current = null;
+      if (row.updated_at !== readSyncMeta().lastSeen) applyIncoming(row);
+    }
+  }, [applyIncoming]);
 
-  const adoptHeldData = useCallback(() => null, []);
+  // A save made while a row is held builds on that row: the held data goes
+  // into the cache first and the caller runs its change on the result, so
+  // the push that follows matches the cloud and keeps both devices' work.
+  const adoptHeldData = useCallback(() => {
+    const row = heldRowRef.current;
+    if (!row) return null;
+    heldRowRef.current = null;
+    writeCache(row.data, row.profile);
+    recordSynced(row.updated_at);
+    const data = initializedCache();
+    setRevision((r) => r + 1);
+    addToast('Updated from your other device', 'info');
+    return data;
+  }, [recordSynced, addToast]);
 
   const value = useMemo(() => ({
     notifyChange,

@@ -70,7 +70,7 @@ const ProfileContext = createContext();
 // Provider component
 export const ProfileProvider = ({ children }) => {
   const [state, dispatch] = useReducer(profileReducer, initialState);
-  const { notifyChange, revision } = useSync();
+  const { notifyChange, revision, adoptHeldData } = useSync();
 
   // Load profile from localStorage on mount, and again whenever the cloud sync
   // replaces the cache. Defaults fill any field the stored profile lacks.
@@ -116,6 +116,9 @@ export const ProfileProvider = ({ children }) => {
   // Action creators
   const updateProfile = async (updates) => {
     try {
+      // Take any change held from the other device first, so this save's
+      // push matches the cloud
+      adoptHeldData();
       dispatch({ type: ACTIONS.SET_LOADING, payload: true });
 
       const updatedProfile = {

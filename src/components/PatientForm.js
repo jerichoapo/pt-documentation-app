@@ -4,11 +4,14 @@ import { Save, Plus, X } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useEditingHold } from '../context/SyncContext';
 import { parseAppDate } from '../utils/sessionFormatting';
 import BackLink from './BackLink';
 import { formatAge } from '../utils/sessionFormatting';
 
 const PatientForm = () => {
+  // Hold changes from the other device until this screen closes
+  useEditingHold(true);
   const { patientId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();

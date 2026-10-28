@@ -220,3 +220,100 @@ test('a push that finds a newer row refetches and shows the conflict screen', as
   expect(await screen.findByRole('button', { name: 'Continue with the cloud data' })).toBeInTheDocument();
   expect(screen.queryByText('the app')).toBeNull();
 });
+
+describe('changes from the other device', () => {
+  let signal;
+  const newer = (updatedAt) => ({
+    data: { ...localData, patients: [...localData.patients, patient('c9')] },
+    profile: localProfile,
+    updated_at: updatedAt
+  });
+
+  beforeEach(() => {
+    subscribeToRow.mockImplementation((uid, onSignal) => {
+      signal = onSignal;
+      return () => {};
+    });
+  });
+
+  test('a newer row with nothing being edited replaces the cache and says so', async () => {
+    await readyWithCleanCache();
+    fetchRow.mockResolvedValue(newer('t9'));
+    await act(async () => signal('t9'));
+
+    expect(await screen.findByText('Updated from your other device')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('ptAppData')).patients).toHaveLength(5);
+    expect(readSyncMeta().lastSeen).toBe('t9');
+  });
+
+  test('a newer row is held while something is being edited and applied when the edit ends', async () => {
+    await readyWithCleanCache();
+    fetchRow.mockResolvedValue(newer('t9'));
+    act(() => sync.beginEdit());
+    await act(async () => signal('t9'));
+    await waitFor(() => expect(fetchRow).toHaveBeenCalledTimes(2));
+
+    expect(JSON.parse(localStorage.getItem('ptAppData')).patients).toHaveLength(4);
+    expect(screen.queryByText('Updated from your other device')).toBeNull();
+
+    act(() => sync.endEdit());
+    expect(await screen.findByText('Updated from your other device')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('ptAppData')).patients).toHaveLength(5);
+  });
+
+  test('a change made during a hold builds on the held row and pushes against it', async () => {
+    await readyWithCleanCache();
+    fetchRow.mockResolvedValue(newer('t9'));
+    updateRow.mockResolvedValue('t10');
+    act(() => sync.beginEdit());
+    await act(async () => signal('t9'));
+    await waitFor(() => expect(fetchRow).toHaveBeenCalledTimes(2));
+
+    let adopted;
+    act(() => {
+      adopted = sync.adoptHeldData();
+    });
+    expect(adopted.patients).toHaveLength(5);
+    expect(readSyncMeta().lastSeen).toBe('t9');
+
+    act(() => sync.notifyChange());
+    await waitFor(() => expect(updateRow).toHaveBeenCalled());
+    expect(updateRow.mock.calls[0][3]).toBe('t9');
+  });
+
+  test("this device's own push echoing back changes nothing", async () => {
+    await readyWithCleanCache();
+    updateRow.mockResolvedValue('t2');
+    act(() => sync.notifyChange());
+    await waitFor(() => expect(readSyncMeta().lastSeen).toBe('t2'));
+
+    await act(async () => signal('t2'));
+    expect(fetchRow).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Updated from your other device')).toBeNull();
+  });
+
+  test('a signal during an in-flight push is checked once after it, quietly when it was ours', async () => {
+    await readyWithCleanCache();
+    let finishPush;
+    updateRow.mockImplementation(() => new Promise((resolve) => { finishPush = resolve; }));
+    act(() => sync.notifyChange());
+    await waitFor(() => expect(updateRow).toHaveBeenCalled());
+
+    await act(async () => signal('t3'));
+    expect(fetchRow).toHaveBeenCalledTimes(1);
+
+    fetchRow.mockResolvedValue({ data: localData, profile: localProfile, updated_at: 't3' });
+    await act(async () => finishPush('t3'));
+    await waitFor(() => expect(fetchRow).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Updated from your other device')).toBeNull();
+  });
+
+  test('coming back to the app checks the cloud for changes', async () => {
+    await readyWithCleanCache();
+    fetchRow.mockResolvedValue(newer('t9'));
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(await screen.findByText('Updated from your other device')).toBeInTheDocument();
+  });
+});

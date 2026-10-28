@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, X } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
+import { useEditingHold } from '../context/SyncContext';
 
 const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -36,6 +37,8 @@ const formatZipCode = (value) => {
 const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initialSchoolName }) => {
   const navigate = useNavigate();
   const { createSchool, updateSchool, getSchoolById, isLoading } = usePatientData();
+  // Hold changes from the other device until this screen closes
+  useEditingHold(true);
 
   const [formData, setFormData] = useState({
     name: initialSchoolName || '',

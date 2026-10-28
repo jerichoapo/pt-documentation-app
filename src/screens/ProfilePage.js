@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Save } from 'lucide-react';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
+import { useEditingHold } from '../context/SyncContext';
 import CredentialsInput from '../components/CredentialsInput';
 import BackLink from '../components/BackLink';
 
@@ -10,6 +11,8 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { profile, updateProfile, isLoading } = useProfile();
   const { addToast } = useToastContext();
+  // Hold changes from the other device until this screen closes
+  useEditingHold(true);
 
   const [formData, setFormData] = useState({
     firstName: '',

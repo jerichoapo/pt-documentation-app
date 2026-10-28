@@ -5,6 +5,7 @@ import { useSession, usePatient, usePatientData } from '../context/PatientDataCo
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useEditingHold } from '../context/SyncContext';
 import { formatMediumDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, toDateInputValue } from '../utils/sessionFormatting';
 import { exportSingleNoteToPDF, exportSingleNoteToDOCX } from '../utils/exportNotes';
 import ExportFormatModal from '../components/ExportFormatModal';
@@ -26,6 +27,8 @@ const SessionDetailPage = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Hold changes from the other device while the note is being edited
+  useEditingHold(isEditing);
 
   // Initialize edited session when session loads
   useEffect(() => {
