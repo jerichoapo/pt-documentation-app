@@ -26,6 +26,33 @@ const SyncScreens = ({ gate, isWorking, onRetry, onSignOut, onUpload, onKeepClou
     );
   }
 
+  if (gate.kind === 'error' && gate.reason === 'signed-out') {
+    return (
+      <Card title="Your sign-in has expired">
+        <p className="text-sm text-gray-700 mb-6">
+          Sign in again to see your caseload. Your data is safe in the cloud.
+        </p>
+        <button onClick={onSignOut} className={primary}>Sign in again</button>
+      </Card>
+    );
+  }
+
+  if (gate.kind === 'error' && gate.reason === 'refused') {
+    return (
+      <Card title="The cloud didn't accept this device's data">
+        <p className="text-sm text-gray-700 mb-3">
+          The database answered with an error, so nothing was changed. Try again, and if it
+          keeps happening, note the code below for whoever manages the database.
+        </p>
+        <p className="text-sm text-gray-600 mb-6">Code: {gate.code}</p>
+        <div className="space-y-3">
+          <button onClick={onRetry} className={primary}>Try again</button>
+          <button onClick={onSignOut} className={secondary}>Sign out</button>
+        </div>
+      </Card>
+    );
+  }
+
   if (gate.kind === 'error') {
     return (
       <Card title="Can't reach your data">

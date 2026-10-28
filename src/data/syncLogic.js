@@ -178,3 +178,13 @@ export const describeLastSynced = (lastSyncedAt, now = new Date()) => {
   if (hours < 24) return `Last synced ${unit(hours, 'hour')} ago`;
   return `Last synced ${unit(Math.floor(hours / 24), 'day')} ago`;
 };
+
+// Why the cloud couldn't be read or written, for the error screen.
+// 'signed-out': the session is no longer valid. 'refused': the server
+// answered with an error code. 'offline': anything else, such as no network
+// or a paused project.
+export const describeLoadError = (error) => {
+  if (error?.status === 401 || error?.code === 'PGRST301' || error?.code === 'PGRST303') return 'signed-out';
+  if (error?.code) return 'refused';
+  return 'offline';
+};

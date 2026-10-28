@@ -383,3 +383,40 @@ describe('a cache that cannot be read', () => {
     expect(updateRow.mock.calls[0][2]).toBeUndefined();
   });
 });
+
+describe('load errors that say what happened', () => {
+  test('two devices uploading at once: the second lands on the choice screen, not an error', async () => {
+    seed({ data: localData, profile: localProfile });
+    fetchRow.mockResolvedValueOnce(null).mockResolvedValue(cloudRow('t1'));
+    insertRow.mockRejectedValue({ code: '23505', message: 'duplicate key value' });
+    renderProvider();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload to the cloud' }));
+    expect(await screen.findByText('This device: 4 patients, 6 notes. Cloud: 1 patient, 0 notes.')).toBeInTheDocument();
+  });
+
+  test('a refusal from the cloud says so and shows the code', async () => {
+    seed({ data: localData, meta: { lastSeen: 't0', dirty: false } });
+    fetchRow.mockRejectedValue({ code: '23502', message: 'null value' });
+    renderProvider();
+    expect(await screen.findByText("The cloud didn't accept this device's data")).toBeInTheDocument();
+    expect(screen.getByText(/23502/)).toBeInTheDocument();
+  });
+
+  test('an expired sign-in offers to sign in again', async () => {
+    const signOut = jest.fn().mockResolvedValue({ error: null });
+    useAuth.mockReturnValue({ user: { id: 'u1' }, signOut });
+    fetchRow.mockRejectedValue({ code: 'PGRST301', message: 'JWT expired' });
+    renderProvider();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in again' }));
+    await waitFor(() => expect(signOut).toHaveBeenCalled());
+  });
+
+  test('Sign out on the error screen says so when it fails', async () => {
+    useAuth.mockReturnValue({ user: { id: 'u1' }, signOut: jest.fn().mockResolvedValue({ error: new TypeError('Failed to fetch') }) });
+    fetchRow.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderProvider();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByText("Couldn't sign out. Check your connection and try again.")).toBeInTheDocument();
+  });
+});

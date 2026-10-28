@@ -13,7 +13,8 @@ import {
   countData,
   chooseLoadPath,
   createPushQueue,
-  unsavedWorkWarning
+  unsavedWorkWarning,
+  describeLoadError
 } from '../data/syncLogic';
 import { downloadTextFile, todayStamp } from '../utils/download';
 import SyncScreens from './SyncScreens';
@@ -84,6 +85,10 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
   const updateStatus = useCallback((next) => {
     setStatus((previous) => (previous === 'failed' && next === 'pending' ? 'failed' : next));
   }, []);
+
+  const showError = useCallback((error) => {
+    showGate({ kind: 'error', reason: describeLoadError(error), code: error?.code || null });
+  }, [showGate]);
 
   const recordSynced = useCallback((updatedAt, extra = {}) => {
     const now = new Date().toISOString();
@@ -219,7 +224,7 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
     try {
       row = await fetchRow(userId);
     } catch (error) {
-      showGate({ kind: 'error' });
+      showError(error);
       return;
     }
 
@@ -258,9 +263,9 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
         showGate({ kind: 'ready' });
       }
     } catch (error) {
-      showGate({ kind: 'error' });
+      showError(error);
     }
-  }, [userId, applyRow, recordSynced, showGate, showConflictWithFreshRow, startFresh]);
+  }, [userId, applyRow, recordSynced, showGate, showError, showConflictWithFreshRow, startFresh]);
 
   useEffect(() => {
     // StrictMode runs effects twice in development; load once per user
@@ -295,7 +300,7 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
         await startFresh();
       }
     } catch (error) {
-      showGate({ kind: 'error' });
+      showError(error);
     }
   };
 
@@ -312,7 +317,12 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
       recordSynced(updatedAt, { dirty: false });
       showGate({ kind: 'ready' });
     } catch (error) {
-      showGate({ kind: 'error' });
+      // Another device uploaded first: load again and offer the choice
+      if (error?.code === '23505') {
+        load();
+        return;
+      }
+      showError(error);
     } finally {
       setIsWorking(false);
     }
@@ -340,7 +350,7 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
       recordSynced(updatedAt, { dirty: false });
       showGate({ kind: 'ready' });
     } catch (error) {
-      showGate({ kind: 'error' });
+      showError(error);
     } finally {
       setIsWorking(false);
     }
@@ -362,7 +372,8 @@ const CloudSyncProvider = ({ children, pushDelayMs = 500, retryDelaysMs = DEFAUL
       });
       if (!confirmed) return;
     }
-    await signOut();
+    const { error } = await signOut();
+    if (error) addToast("Couldn't sign out. Check your connection and try again.", 'error');
   };
 
   useEffect(() => {

@@ -9,7 +9,8 @@ import {
   chooseLoadPath,
   createPushQueue,
   describeLastSynced,
-  unsavedWorkWarning
+  unsavedWorkWarning,
+  describeLoadError
 } from './syncLogic';
 
 const flush = async () => {
@@ -272,5 +273,18 @@ describe('unsavedWorkWarning', () => {
   test('names a note draft in progress', () => {
     localStorage.setItem('ptAppSessionDraft', JSON.stringify({ patientId: 'p1' }));
     expect(unsavedWorkWarning()).toMatch(/note you started/);
+  });
+});
+
+describe('describeLoadError', () => {
+  test.each([
+    ['a failed fetch', new TypeError('Failed to fetch'), 'offline'],
+    ['an error with no code or status', { message: 'x' }, 'offline'],
+    ['HTTP 401', { status: 401, message: 'Unauthorized' }, 'signed-out'],
+    ['an expired JWT', { code: 'PGRST301', message: 'JWT expired' }, 'signed-out'],
+    ['an invalid JWT', { code: 'PGRST303', message: 'bad' }, 'signed-out'],
+    ['a database refusal', { code: '23502', message: 'null value' }, 'refused']
+  ])('%s', (_, error, expected) => {
+    expect(describeLoadError(error)).toBe(expected);
   });
 });
