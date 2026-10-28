@@ -6,6 +6,7 @@ import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { parseAppDate } from '../utils/sessionFormatting';
 import BackLink from './BackLink';
+import { formatAge } from '../utils/sessionFormatting';
 
 const PatientForm = () => {
   const { patientId } = useParams();
@@ -115,20 +116,6 @@ const PatientForm = () => {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, navigate, location.pathname]);
-
-  const calculateAge = (dob) => {
-    if (!dob) return '';
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-
-    return age >= 0 ? `${age} years` : '';
-  };
 
   const normalizePhoneNumber = (phone) => {
     // Remove all non-digit characters
@@ -437,7 +424,7 @@ const PatientForm = () => {
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.firstName ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter first name"
@@ -455,7 +442,7 @@ const PatientForm = () => {
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.lastName ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter last name"
@@ -466,7 +453,7 @@ const PatientForm = () => {
             </div>
           </div>
 
-          {/* DOB and Age */}
+          {/* DOB, with age computed below it */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -476,26 +463,55 @@ const PatientForm = () => {
                 type="date"
                 value={formData.dob}
                 onChange={(e) => handleInputChange('dob', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.dob ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
+              {formData.dob && (
+                <p className="mt-1 text-sm text-gray-600">Age: {formatAge(formData.dob)}</p>
+              )}
               {errors.dob && (
                 <p className="mt-1 text-sm text-red-600">{errors.dob}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Guardian Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Parent/Guardian Name *
+              </label>
+              <input
+                type="text"
+                value={formData.guardianName}
+                onChange={(e) => handleInputChange('guardianName', e.target.value)}
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.guardianName ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter guardian name"
+              />
+              {errors.guardianName && (
+                <p className="mt-1 text-sm text-red-600">{errors.guardianName}</p>
               )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Age
+                Contact Phone Number *
               </label>
               <input
-                type="text"
-                value={calculateAge(formData.dob)}
-                readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
-                placeholder="Age will be calculated"
+                type="tel"
+                value={formData.guardianPhone}
+                onChange={(e) => handleInputChange('guardianPhone', e.target.value)}
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.guardianPhone ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="(555) 123 - 4567"
               />
+              {errors.guardianPhone && (
+                <p className="mt-1 text-sm text-red-600">{errors.guardianPhone}</p>
+              )}
             </div>
           </div>
 
@@ -508,7 +524,7 @@ const PatientForm = () => {
               type="text"
               value={formData.diagnosis}
               onChange={(e) => handleInputChange('diagnosis', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter diagnosis (optional)"
             />
           </div>
@@ -522,7 +538,7 @@ const PatientForm = () => {
               <select
                 value={formData.grade}
                 onChange={(e) => handleInputChange('grade', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select grade (optional)</option>
                 <option value="K">K</option>
@@ -552,7 +568,7 @@ const PatientForm = () => {
                 onChange={(e) => handleSchoolInputChange(e.target.value)}
                 onFocus={handleSchoolInputFocus}
                 onBlur={handleSchoolInputBlur}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.school ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Search and select school (optional)"
@@ -594,7 +610,7 @@ const PatientForm = () => {
                   'visitFrequency',
                   e.target.value ? { timesPerWeek: Number(e.target.value) } : null
                 )}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Not set (optional)</option>
                 <option value="1">1× per week</option>
@@ -627,7 +643,7 @@ const PatientForm = () => {
                     value={goal.text}
                     onChange={(e) => handleGoalChange(goal.id, 'text', e.target.value)}
                     placeholder="Goal description (e.g., Ascend 5 stairs with rail, SBA)"
-                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 min-w-[200px] min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <div>
                     <input
@@ -635,13 +651,13 @@ const PatientForm = () => {
                       value={goal.targetDate || ''}
                       onChange={(e) => handleGoalChange(goal.id, 'targetDate', e.target.value || null)}
                       title="Target date (optional)"
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <select
                     value={goal.status}
                     onChange={(e) => handleGoalChange(goal.id, 'status', e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="active">Active</option>
                     <option value="met">Met</option>
@@ -661,50 +677,11 @@ const PatientForm = () => {
             <button
               type="button"
               onClick={handleAddGoal}
-              className="mt-2 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium text-sm"
+              className="mt-2 inline-flex items-center gap-1 min-h-[44px] text-blue-600 hover:text-blue-800 font-medium text-sm"
             >
               <Plus size={16} />
               Add Goal
             </button>
-          </div>
-
-          {/* Guardian Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Parent/Guardian Name *
-              </label>
-              <input
-                type="text"
-                value={formData.guardianName}
-                onChange={(e) => handleInputChange('guardianName', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.guardianName ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Enter guardian name"
-              />
-              {errors.guardianName && (
-                <p className="mt-1 text-sm text-red-600">{errors.guardianName}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Phone Number *
-              </label>
-              <input
-                type="tel"
-                value={formData.guardianPhone}
-                onChange={(e) => handleInputChange('guardianPhone', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.guardianPhone ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="(555) 123 - 4567"
-              />
-              {errors.guardianPhone && (
-                <p className="mt-1 text-sm text-red-600">{errors.guardianPhone}</p>
-              )}
-            </div>
           </div>
 
           {/* Notes */}
@@ -716,17 +693,17 @@ const PatientForm = () => {
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter any additional notes (optional)"
             />
           </div>
 
           {/* Submit Button */}
-          <div className="flex justify-end pt-4">
+          <div className="flex sm:justify-end pt-4">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto justify-center min-h-[44px] bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save size={20} />
               {isSubmitting ? 'Saving...' : isEditMode ? 'Update Patient' : 'Add Patient'}
