@@ -1,9 +1,10 @@
 import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, Trash2, Calendar, Clock, MapPin, Phone, Mail, User as ContactIcon } from 'lucide-react';
+import { RotateCcw, Trash2, Calendar, Clock, MapPin, Phone, Mail, User as ContactIcon } from 'lucide-react';
 import { useDeletedSchool, usePatientData } from '../context/PatientDataContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { formatDate } from '../utils/sessionFormatting';
+import BackLink from '../components/BackLink';
 
 const DeletedSchoolDetailPage = () => {
   const { schoolId } = useParams();
@@ -77,13 +78,7 @@ const DeletedSchoolDetailPage = () => {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <Link
-          to="/recently-deleted"
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-        >
-          <ArrowLeft size={20} />
-          Back to Recently Deleted
-        </Link>
+        <BackLink to="/recently-deleted" label="Recently Deleted" />
       </div>
 
       {/* Deleted Banner */}

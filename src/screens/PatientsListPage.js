@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Search, Plus, X } from 'lucide-react';
 import { usePatients, usePatientData } from '../context/PatientDataContext';
-import { parseAppDate, formatShortDate, isPatientDueThisWeek } from '../utils/sessionFormatting';
+import { formatShortDate, formatAge, isPatientDueThisWeek, visitsThisWeek } from '../utils/sessionFormatting';
 
 const PatientsListPage = () => {
   const navigate = useNavigate();
@@ -14,18 +14,8 @@ const PatientsListPage = () => {
   const schoolIdFilter = searchParams.get('schoolId');
   const filterSchool = schoolIdFilter ? getSchoolById(schoolIdFilter) : null;
 
-  const calculateAge = (dob) => {
-    const birthDate = parseAppDate(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-
-    return age;
-  };
+  const dueLabel = (patient) =>
+    `${visitsThisWeek(patient, sessions)} of ${patient.visitFrequency.timesPerWeek} visits this week`;
 
   const getSchoolName = (patient) => {
     if (patient.schoolId) {
@@ -132,16 +122,16 @@ const PatientsListPage = () => {
                 className="w-full text-left p-4 hover:bg-gray-50"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="font-medium text-gray-900 flex items-center gap-2">
+                  <div className="font-medium text-gray-900 flex flex-wrap items-center gap-x-2 gap-y-1">
                     {patient.firstName} {patient.lastName}
                     {isPatientDueThisWeek(patient, sessions) && (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold" title={dueLabel(patient)} aria-label={`Due: ${dueLabel(patient)}`}>
                         Due
                       </span>
                     )}
                   </div>
                   <div className="text-sm text-gray-500 flex-shrink-0">
-                    {calculateAge(patient.dob)} yrs
+                    {formatAge(patient.dob)}
                   </div>
                 </div>
                 <div className="text-sm text-gray-600 mt-1">
@@ -151,7 +141,7 @@ const PatientsListPage = () => {
                   {getSchoolName(patient) || 'No school'}
                   {patient.grade ? ` · Grade ${patient.grade}` : ''}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-sm text-gray-500 mt-1">
                   {patient.lastSessionDate
                     ? `Last session ${formatShortDate(patient.lastSessionDate)}`
                     : 'No sessions'}
@@ -186,7 +176,7 @@ const PatientsListPage = () => {
                       <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                         {patient.firstName} {patient.lastName}
                         {isPatientDueThisWeek(patient, sessions) && (
-                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold" title={dueLabel(patient)} aria-label={`Due: ${dueLabel(patient)}`}>
                             Due
                           </span>
                         )}
@@ -194,7 +184,7 @@ const PatientsListPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-700">
-                        {calculateAge(patient.dob)} years
+                        {formatAge(patient.dob)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -237,7 +227,7 @@ const PatientsListPage = () => {
       <div className="mt-6 text-center">
         <Link
           to="/recently-deleted"
-          className="text-sm text-gray-500 hover:text-gray-700 underline"
+          className="inline-flex items-center min-h-[44px] px-2 text-sm text-gray-500 hover:text-gray-700 underline"
         >
           Recently Deleted
         </Link>

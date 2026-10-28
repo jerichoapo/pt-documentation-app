@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Edit, ArrowLeft, Users, ChevronRight } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { formatShortDate } from '../utils/sessionFormatting';
+import BackLink from '../components/BackLink';
 
 const SchoolProfilePage = () => {
   const { schoolId } = useParams();
@@ -42,25 +43,17 @@ const SchoolProfilePage = () => {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">School Profile</h1>
-        <div className="flex items-center gap-3">
-          <Link
-            to={`/schools/${schoolId}/edit`}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-          >
-            <Edit size={20} />
-            Edit School
-          </Link>
-          <Link
-            to="/schools"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium"
-          >
-            <ArrowLeft size={20} />
-            Back to Schools
-          </Link>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <BackLink to="/schools" label="Schools" />
+        <Link
+          to={`/schools/${schoolId}/edit`}
+          className="inline-flex items-center gap-2 min-h-[44px] bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 font-medium"
+        >
+          <Edit size={20} />
+          Edit School
+        </Link>
       </div>
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">School Profile</h1>
 
       {/* School Information */}
       <div className="bg-white shadow-sm rounded-lg p-6">

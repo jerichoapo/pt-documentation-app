@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
 import CredentialsInput from '../components/CredentialsInput';
+import BackLink from '../components/BackLink';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -101,13 +102,7 @@ const ProfilePage = () => {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-        >
-          <ArrowLeft size={20} />
-          Back to Home
-        </button>
+        <BackLink to="/" label="Home" />
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">

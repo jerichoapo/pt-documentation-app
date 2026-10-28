@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, X } from 'lucide-react';
+import { Save, Plus, X } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { parseAppDate } from '../utils/sessionFormatting';
+import BackLink from './BackLink';
 
 const PatientForm = () => {
   const { patientId } = useParams();
@@ -414,13 +415,10 @@ const PatientForm = () => {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={() => navigate(isEditMode ? `/patients/${patientId}` : '/patients')}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-        >
-          <ArrowLeft size={20} />
-          Back to {isEditMode ? 'Patient' : 'Patients'}
-        </button>
+        <BackLink
+          to={isEditMode ? `/patients/${patientId}` : '/patients'}
+          label={isEditMode ? 'Patient' : 'Patients'}
+        />
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">

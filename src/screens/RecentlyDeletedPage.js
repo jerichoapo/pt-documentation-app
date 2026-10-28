@@ -6,6 +6,7 @@ import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { formatDate } from '../utils/sessionFormatting';
 import RestoreNoteDecisionModal from '../components/RestoreNoteDecisionModal';
+import BackLink from '../components/BackLink';
 
 // The 'sessions' tab is labeled "Notes" in the UI, so user-facing text must say
 // "note", never "session"
@@ -326,17 +327,9 @@ const RecentlyDeletedPage = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-          >
-            <ArrowLeft size={20} />
-            Back to Home
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-800">Recently Deleted</h1>
-        </div>
+      <div className="flex flex-col gap-3 mb-6">
+        <BackLink to="/" label="Home" />
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Recently Deleted</h1>
       </div>
 
       {/* Tabs */}
@@ -348,7 +341,7 @@ const RecentlyDeletedPage = () => {
               setSelectedItems(new Set());
               setSearchTerm('');
             }}
-            className={`px-6 py-3 font-medium border-b-2 transition-colors ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-6 py-3 min-h-[44px] font-medium border-b-2 transition-colors ${
               activeTab === 'patients'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -362,7 +355,7 @@ const RecentlyDeletedPage = () => {
               setSelectedItems(new Set());
               setSearchTerm('');
             }}
-            className={`px-6 py-3 font-medium border-b-2 transition-colors ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-6 py-3 min-h-[44px] font-medium border-b-2 transition-colors ${
               activeTab === 'sessions'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -376,7 +369,7 @@ const RecentlyDeletedPage = () => {
               setSelectedItems(new Set());
               setSearchTerm('');
             }}
-            className={`px-6 py-3 font-medium border-b-2 transition-colors ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-6 py-3 min-h-[44px] font-medium border-b-2 transition-colors ${
               activeTab === 'schools'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'

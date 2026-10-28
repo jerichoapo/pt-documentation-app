@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Download, Upload, User, ChevronRight, HardDrive, Trash2 } from 'lucide-react';
+import { Download, Upload, User, ChevronRight, HardDrive, Trash2 } from 'lucide-react';
 import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { getAppMeta, setAppMeta, daysSince } from '../utils/appMeta';
 import { formatShortDate } from '../utils/sessionFormatting';
+import BackLink from '../components/BackLink';
 
 const activeCounts = (data) => ({
   patients: data.patients.filter(p => !p.deleted_at).length,
@@ -95,13 +96,7 @@ const SettingsPage = () => {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-        >
-          <ArrowLeft size={20} />
-          Back to Home
-        </Link>
+        <BackLink to="/" label="Home" />
       </div>
 
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Settings</h1>

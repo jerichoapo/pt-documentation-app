@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, Trash2, Calendar, Clock, User } from 'lucide-react';
+import { RotateCcw, Trash2, Calendar, Clock, User } from 'lucide-react';
 import { useDeletedSession, usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { formatDate, formatTimeRange, getSessionDurationMinutes, formatDuration } from '../utils/sessionFormatting';
 import RestoreNoteDecisionModal from '../components/RestoreNoteDecisionModal';
+import BackLink from '../components/BackLink';
 
 const DeletedSessionDetailPage = () => {
   const { sessionId } = useParams();
@@ -117,13 +118,7 @@ const DeletedSessionDetailPage = () => {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <Link
-          to="/recently-deleted"
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-        >
-          <ArrowLeft size={20} />
-          Back to Recently Deleted
-        </Link>
+        <BackLink to="/recently-deleted" label="Recently Deleted" />
       </div>
 
       {/* Deleted Banner */}

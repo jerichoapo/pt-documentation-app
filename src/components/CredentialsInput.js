@@ -45,22 +45,22 @@ const CredentialsInput = ({ credentials, onChange }) => {
 
   return (
     <div
-      className="min-h-[42px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 cursor-text"
+      className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-1 text-sm ring-offset-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 cursor-text"
       onClick={handleInputFocus}
     >
       <div className="flex flex-wrap gap-1">
         {credentials.map((credential, index) => (
           <span
             key={index}
-            className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800"
+            className="inline-flex items-center gap-1 rounded-md bg-blue-100 pl-2 text-sm font-medium text-blue-800"
           >
             {credential}
             <button
               type="button"
               onClick={() => removeCredential(index)}
-              className="ml-1 inline-flex h-3 w-3 items-center justify-center rounded-full text-blue-600 hover:bg-blue-200 hover:text-blue-800"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-md text-blue-600 hover:bg-blue-200 hover:text-blue-800"
             >
-              <X className="h-2.5 w-2.5" />
+              <X className="h-4 w-4" />
               <span className="sr-only">Remove {credential}</span>
             </button>
           </span>
@@ -71,7 +71,7 @@ const CredentialsInput = ({ credentials, onChange }) => {
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          className="flex-1 min-w-[120px] bg-transparent outline-none placeholder:text-gray-500"
+          className="flex-1 min-w-[120px] min-h-[44px] bg-transparent outline-none placeholder:text-gray-500"
           placeholder={credentials.length === 0 ? "Add credential (press Enter)" : ""}
         />
       </div>

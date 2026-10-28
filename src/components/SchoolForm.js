@@ -242,10 +242,11 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
       <div className="mb-6">
         <button
           onClick={handleCancel}
-          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
+          className="inline-flex items-center gap-2 min-h-[44px] text-blue-600 hover:text-blue-800 font-medium"
         >
           <ArrowLeft size={20} />
-          {returnTo ? 'Back to Patient Form' : 'Back to Schools'}
+          <span className="hidden sm:inline">{returnTo ? 'Back to Patient Form' : 'Back to Schools'}</span>
+          <span className="sm:hidden">Back</span>
         </button>
       </div>
 

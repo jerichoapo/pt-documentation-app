@@ -94,10 +94,10 @@ const SchoolsListPage = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="🔍 Search schools..."
+            placeholder="Search schools..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
@@ -130,7 +130,7 @@ const SchoolsListPage = () => {
                 <div className="flex items-start justify-between gap-2">
                   <Link
                     to={`/schools/${school.id}`}
-                    className="font-medium text-blue-600 hover:text-blue-800"
+                    className="inline-flex items-center min-h-[44px] font-medium text-blue-600 hover:text-blue-800"
                   >
                     {school.name}
                   </Link>
@@ -156,7 +156,7 @@ const SchoolsListPage = () => {
                     href={mapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 min-h-[44px]"
                   >
                     <MapPin size={14} className="flex-shrink-0" />
                     {address}
@@ -167,7 +167,7 @@ const SchoolsListPage = () => {
                 </div>
                 <button
                   onClick={() => handlePatientCountClick(school.id)}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-2"
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 min-h-[44px]"
                 >
                   <Users size={14} />
                   {patientCount} patient{patientCount !== 1 ? 's' : ''}
