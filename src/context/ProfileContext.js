@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { useSync } from './SyncContext';
 
 // Action types
 const ACTIONS = {
@@ -69,8 +70,10 @@ const ProfileContext = createContext();
 // Provider component
 export const ProfileProvider = ({ children }) => {
   const [state, dispatch] = useReducer(profileReducer, initialState);
+  const { notifyChange, revision } = useSync();
 
-  // Load profile from localStorage on mount
+  // Load profile from localStorage on mount, and again whenever the cloud sync
+  // replaces the cache. Defaults fill any field the stored profile lacks.
   useEffect(() => {
     try {
       const storedProfile = localStorage.getItem('pt-app-profile');
@@ -78,7 +81,7 @@ export const ProfileProvider = ({ children }) => {
         const parsedProfile = JSON.parse(storedProfile);
         dispatch({
           type: ACTIONS.LOAD_PROFILE,
-          payload: parsedProfile
+          payload: { ...initialState.profile, ...parsedProfile }
         });
       } else {
         dispatch({
@@ -93,7 +96,7 @@ export const ProfileProvider = ({ children }) => {
         payload: 'Failed to load profile data'
       });
     }
-  }, []);
+  }, [revision]);
 
   // Save profile to localStorage whenever it changes
   useEffect(() => {
@@ -124,6 +127,9 @@ export const ProfileProvider = ({ children }) => {
         type: ACTIONS.UPDATE_PROFILE,
         payload: updatedProfile
       });
+      // Written now rather than by the effect, so the push that follows sends it
+      localStorage.setItem('pt-app-profile', JSON.stringify(updatedProfile));
+      notifyChange();
 
       return updatedProfile;
     } catch (error) {

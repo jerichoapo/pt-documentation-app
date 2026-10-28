@@ -136,3 +136,16 @@ export const createPushQueue = ({ push, delayMs = 500, retryDelaysMs = [1000, 20
     }
   };
 };
+
+const unit = (count, noun) => `${count} ${noun}${count === 1 ? '' : 's'}`;
+
+// "Last synced 2 minutes ago" for the Settings page.
+export const describeLastSynced = (lastSyncedAt, now = new Date()) => {
+  if (!lastSyncedAt) return 'Not synced yet';
+  const minutes = Math.floor((now.getTime() - new Date(lastSyncedAt).getTime()) / 60000);
+  if (minutes < 1) return 'Last synced just now';
+  if (minutes < 60) return `Last synced ${unit(minutes, 'minute')} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Last synced ${unit(hours, 'hour')} ago`;
+  return `Last synced ${unit(Math.floor(hours / 24), 'day')} ago`;
+};

@@ -7,7 +7,8 @@ import {
   countData,
   hasLocalData,
   chooseLoadPath,
-  createPushQueue
+  createPushQueue,
+  describeLastSynced
 } from './syncLogic';
 
 const flush = async () => {
@@ -215,5 +216,21 @@ describe('createPushQueue', () => {
     jest.advanceTimersByTime(1000);
     await flush();
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe('describeLastSynced', () => {
+  const now = new Date(2026, 9, 28, 12, 0, 0);
+  const ago = (ms) => new Date(now.getTime() - ms).toISOString();
+
+  test.each([
+    [null, 'Not synced yet'],
+    [ago(20 * 1000), 'Last synced just now'],
+    [ago(60 * 1000), 'Last synced 1 minute ago'],
+    [ago(2 * 60 * 1000), 'Last synced 2 minutes ago'],
+    [ago(3 * 60 * 60 * 1000), 'Last synced 3 hours ago'],
+    [ago(2 * 24 * 60 * 60 * 1000), 'Last synced 2 days ago']
+  ])('%s', (lastSyncedAt, expected) => {
+    expect(describeLastSynced(lastSyncedAt, now)).toBe(expected);
   });
 });

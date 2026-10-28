@@ -19,6 +19,7 @@ import PatientForm from './components/PatientForm';
 import ErrorModal from './components/ErrorModal';
 import AppHeader from './components/AppHeader';
 import BottomNav from './components/BottomNav';
+import SyncBanner from './components/SyncBanner';
 import { usePatientData } from './context/PatientDataContext';
 import { useConfirm } from './context/ConfirmContext';
 
@@ -28,7 +29,7 @@ const App = () => {
   const handleClearData = async () => {
     const confirmed = await confirm({
       title: 'Delete all data?',
-      message: 'This will permanently delete all patients, notes, and schools on this device. This cannot be undone.',
+      message: 'This will permanently delete all patients, notes, and schools, on this device and in the cloud. This cannot be undone.',
       confirmLabel: 'Delete Everything',
       danger: true
     });
@@ -54,6 +55,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       <AppHeader />
+      <SyncBanner />
 
       <main className="py-6 px-4 pb-24 sm:pb-8">
         <Routes>

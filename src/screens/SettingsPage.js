@@ -5,7 +5,8 @@ import { usePatientData } from '../context/PatientDataContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useAuth } from '../context/AuthContext';
-import { readSyncMeta } from '../data/syncLogic';
+import { useSync } from '../context/SyncContext';
+import { readSyncMeta, describeLastSynced } from '../data/syncLogic';
 import { getAppMeta, setAppMeta, daysSince } from '../utils/appMeta';
 import { formatShortDate } from '../utils/sessionFormatting';
 import BackLink from '../components/BackLink';
@@ -24,6 +25,7 @@ const SettingsPage = () => {
   const { addToast } = useToastContext();
   const confirm = useConfirm();
   const { user, signOut } = useAuth();
+  const { status: syncStatus, lastSyncedAt } = useSync();
   const fileInputRef = useRef(null);
   const [lastBackupAt, setLastBackupAt] = useState(getAppMeta().lastBackupAt || null);
   const [isImporting, setIsImporting] = useState(false);
@@ -126,7 +128,14 @@ const SettingsPage = () => {
           <CircleUser className="text-gray-500" size={20} />
           <h2 className="text-xl font-semibold text-gray-800">Account</h2>
         </div>
-        <p className="text-sm text-gray-600 mb-4 break-words">Signed in as {user?.email}</p>
+        <p className="text-sm text-gray-600 break-words">Signed in as {user?.email}</p>
+        <p className={`text-sm mb-4 ${syncStatus === 'failed' ? 'text-red-700' : 'text-gray-600'}`}>
+          {syncStatus === 'failed'
+            ? 'Changes not saved to the cloud. Check your connection.'
+            : syncStatus === 'pending'
+              ? 'Saving…'
+              : describeLastSynced(lastSyncedAt)}
+        </p>
         <button
           onClick={handleSignOut}
           className="flex items-center gap-2 min-h-[44px] bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium"
@@ -143,8 +152,8 @@ const SettingsPage = () => {
           <h2 className="text-xl font-semibold text-gray-800">Your Data</h2>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          All data is stored on this device only. Download a backup regularly so a lost or
-          cleared browser doesn't take your notes with it.
+          Your data is saved to the cloud and shared with your other devices. This device keeps a
+          copy so the app opens quickly. A backup file is still worth keeping before big changes.
         </p>
 
         <div className="text-sm text-gray-700 mb-4">

@@ -7,6 +7,7 @@ import { PatientDataProvider } from './context/PatientDataContext';
 import { ProfileProvider } from './context/ProfileContext';
 import { AuthProvider } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
+import CloudSyncProvider from './components/CloudSyncProvider';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
@@ -19,11 +20,13 @@ root.render(
         <ConfirmProvider>
           <AuthProvider>
             <AuthGate>
-              <PatientDataProvider>
-                <ProfileProvider>
-                  <App />
-                </ProfileProvider>
-              </PatientDataProvider>
+              <CloudSyncProvider>
+                <PatientDataProvider>
+                  <ProfileProvider>
+                    <App />
+                  </ProfileProvider>
+                </PatientDataProvider>
+              </CloudSyncProvider>
             </AuthGate>
           </AuthProvider>
         </ConfirmProvider>

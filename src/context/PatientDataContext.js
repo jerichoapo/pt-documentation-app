@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { store } from '../data/store';
 import { useToastContext } from './ToastContext';
+import { useSync } from './SyncContext';
 
 // Action types
 const ACTIONS = {
@@ -86,13 +87,14 @@ const PatientDataContext = createContext();
 export const PatientDataProvider = ({ children }) => {
   const [state, dispatch] = useReducer(patientDataReducer, initialState);
   const { addToast } = useToastContext();
+  const { notifyChange, revision } = useSync();
 
   // Latest data, updated synchronously on every mutation. React state updates
   // are async, so sequential awaited actions (e.g. bulk restore loops) must
   // not read from the render closure or later writes clobber earlier ones.
   const dataRef = useRef({ patients: [], sessions: [], schools: [] });
 
-  // Load data on mount
+  // Load data on mount, and again whenever the cloud sync replaces the cache
   useEffect(() => {
     try {
       const data = store.init();
@@ -126,7 +128,7 @@ export const PatientDataProvider = ({ children }) => {
         });
       }
     }
-  }, []);
+  }, [revision]);
 
   // Action creators
 
@@ -146,6 +148,7 @@ export const PatientDataProvider = ({ children }) => {
       schools: newData.schools ?? dataRef.current.schools
     };
     dispatch({ type, payload: newData });
+    notifyChange();
   };
 
   const addPatient = async (patientData, options = {}) => {
@@ -618,13 +621,16 @@ export const PatientDataProvider = ({ children }) => {
     return store.getSchoolSuggestions(getFullData(), query, limit);
   };
 
+  // Leaves a complete empty object in the cache so the cloud row is emptied too
   const clearAllData = () => {
     store.clearAllData();
+    store.importData({ patients: [], sessions: [], schools: [] });
     dataRef.current = { patients: [], sessions: [], schools: [] };
     dispatch({
       type: ACTIONS.LOAD_DATA,
       payload: { patients: [], sessions: [], schools: [] }
     });
+    notifyChange();
   };
 
   const exportData = () => {
@@ -647,6 +653,7 @@ export const PatientDataProvider = ({ children }) => {
           schools: newData.schools
         }
       });
+      notifyChange();
       addToast('Backup imported successfully', 'success');
       return newData;
     } catch (error) {
