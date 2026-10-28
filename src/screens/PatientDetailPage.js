@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit2, Trash2, Plus, Calendar, FileText, Clock, Download, Copy } from 'lucide-react';
+import { Edit2, Trash2, Plus, Calendar, FileText, Clock, Download, Copy, ChevronDown } from 'lucide-react';
 import { usePatient, useSessionsForPatient, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import { useToastContext } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { formatDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, parseAppDate, formatDisplayPhone } from '../utils/sessionFormatting';
+import { formatMediumDate, formatShortDate, formatTimeRange, getSessionDurationMinutes, formatDuration, formatDisplayPhone, formatAge } from '../utils/sessionFormatting';
 import { useStartSession } from '../hooks/useStartSession';
 import { exportBulkNotesToPDF, exportBulkNotesToDOCX } from '../utils/exportNotes';
 import ExportFormatModal from '../components/ExportFormatModal';
+import BackLink from '../components/BackLink';
 
 const PatientDetailPage = () => {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const patient = usePatient(patientId);
-  const { softDeletePatient } = usePatientData();
+  const { softDeletePatient, getSchoolById } = usePatientData();
   const allSessions = useSessionsForPatient(patientId);
   const startSession = useStartSession();
   const { profile } = useProfile();
@@ -25,19 +26,6 @@ const PatientDetailPage = () => {
   const sessionsToShow = allSessions.slice(0, visibleSessions);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-
-  const calculateAge = (dob) => {
-    const birthDate = parseAppDate(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-
-    return age;
-  };
 
   const handleEditPatient = () => {
     navigate(`/patients/${patientId}/edit`);
@@ -109,47 +97,57 @@ const PatientDetailPage = () => {
     );
   }
 
+  const school = patient.schoolId ? getSchoolById(patient.schoolId) : null;
+  const schoolName = school?.name || patient.school || 'Not specified';
+
+  const detailRow = (label, value, field) => (
+    <div>
+      <p className="text-sm font-medium text-gray-600">{label}</p>
+      <p className="text-base text-gray-900" data-field={field}>{value}</p>
+    </div>
+  );
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <Link
-          to="/patients"
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-        >
-          <ArrowLeft size={20} />
-          Back to Patients
-        </Link>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <BackLink to="/patients" label="Patients" />
+        <div className="flex gap-2">
           <button
             onClick={handleEditPatient}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium"
+            className="flex items-center gap-2 min-h-[44px] bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 font-medium"
           >
             <Edit2 size={16} />
             Edit
           </button>
           <button
             onClick={handleDeletePatient}
-            className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-medium"
+            className="flex items-center gap-2 min-h-[44px] bg-red-100 text-red-700 px-4 rounded-lg hover:bg-red-200 font-medium"
           >
             <Trash2 size={16} />
-            Delete Patient
+            <span className="sm:hidden">Delete</span>
+            <span className="hidden sm:inline">Delete Patient</span>
           </button>
         </div>
       </div>
 
-      {/* Patient Info Card */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">
-            {patient.firstName} {patient.lastName}
-          </h1>
-          <div className="flex items-center gap-3">
+      {/* Name and the two ways to start a note */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+              {patient.firstName} {patient.lastName}
+            </h1>
+            {patient.diagnosis && (
+              <p className="text-lg text-gray-700 mt-1">{patient.diagnosis}</p>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
             {allSessions.length > 0 && (
               <button
                 onClick={() => startSession(patientId, { copyFrom: allSessions[0].id })}
                 title="Start a new session prefilled with the most recent note"
-                className="bg-blue-50 text-blue-700 border border-blue-200 px-6 py-3 rounded-lg hover:bg-blue-100 font-medium flex items-center gap-2"
+                className="w-full sm:w-auto min-h-[44px] justify-center bg-blue-50 text-blue-700 border border-blue-200 px-5 py-2 rounded-lg hover:bg-blue-100 font-medium flex items-center gap-2"
               >
                 <Copy size={20} />
                 Start from Last Session
@@ -157,107 +155,25 @@ const PatientDetailPage = () => {
             )}
             <button
               onClick={() => startSession(patientId)}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+              className="w-full sm:w-auto min-h-[44px] justify-center bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
             >
               <Plus size={20} />
               Start New Session
             </button>
           </div>
         </div>
-
-        <div className="space-y-6">
-          {/* Row 1: Age and Parent/Guardian */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-              <p className="text-lg text-gray-900">{calculateAge(patient.dob)} years</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Parent/Guardian</label>
-              <p className="text-lg text-gray-900">{patient.guardianName || 'Not specified'}</p>
-            </div>
-          </div>
-
-          {/* Row 2: Date of Birth and Contact Phone */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-              <p className="text-lg text-gray-900">{formatShortDate(patient.dob)}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
-              <p className="text-lg text-gray-900">{patient.guardianPhone ? formatDisplayPhone(patient.guardianPhone) : 'Not specified'}</p>
-            </div>
-          </div>
-
-          {/* Row 3: Diagnosis (full width) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
-            <p className="text-lg text-gray-900">{patient.diagnosis || 'Not specified'}</p>
-          </div>
-
-          {/* Row 4: Grade and School */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
-              <p className="text-lg text-gray-900">{patient.grade || 'Not specified'}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
-              <p className="text-lg text-gray-900">{patient.school || 'Not specified'}</p>
-            </div>
-          </div>
-
-          {/* Therapy Goals */}
-          {(patient.goals || []).length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Therapy Goals</label>
-              <ul className="space-y-2">
-                {patient.goals.map(goal => (
-                  <li key={goal.id} className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        goal.status === 'active'
-                          ? 'bg-blue-100 text-blue-800'
-                          : goal.status === 'met'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-200 text-gray-600'
-                      }`}
-                    >
-                      {goal.status === 'active' ? 'Active' : goal.status === 'met' ? 'Met' : 'Discontinued'}
-                    </span>
-                    <span className={`text-gray-900 ${goal.status !== 'active' ? 'line-through text-gray-500' : ''}`}>
-                      {goal.text}
-                    </span>
-                    {goal.targetDate && (
-                      <span className="text-xs text-gray-500">target {formatShortDate(goal.targetDate)}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Additional Notes (if present) */}
-          {patient.notes && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-              <p className="text-lg text-gray-900">{patient.notes}</p>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Session History */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
             Session History ({patient.sessionCount || 0} total)
           </h2>
           {allSessions.length > 0 && (
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 font-medium"
+              className="flex items-center gap-2 min-h-[44px] bg-green-100 text-green-700 px-4 rounded-lg hover:bg-green-200 font-medium"
             >
               <Download size={16} />
               Download All Notes
@@ -284,16 +200,16 @@ const PatientDetailPage = () => {
                 key={session.id}
                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="text-blue-600" size={16} />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="text-blue-600 shrink-0" size={16} />
                       <span className="text-sm font-medium text-gray-900">
-                        {formatDate(session.sessionDate)}
+                        {formatMediumDate(session.sessionDate)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Clock size={16} />
+                      <Clock className="shrink-0" size={16} />
                       <span>
                         {formatTimeRange(session.startTime, session.endTime)}
                         {getSessionDurationMinutes(session.startTime, session.endTime) > 0 && (
@@ -303,10 +219,13 @@ const PatientDetailPage = () => {
                         )}
                       </span>
                     </div>
+                    {session.assessment && (
+                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">{session.assessment}</p>
+                    )}
                   </div>
                   <button
                     onClick={() => handleViewSession(session.id)}
-                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium text-sm"
+                    className="shrink-0 min-h-[44px] bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 font-medium text-sm"
                   >
                     View →
                   </button>
@@ -327,6 +246,57 @@ const PatientDetailPage = () => {
           </div>
         )}
       </div>
+
+      {/* Therapy Goals */}
+      {(patient.goals || []).length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Therapy Goals</h2>
+          <ul className="space-y-3">
+            {patient.goals.map(goal => (
+              <li key={goal.id} className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    goal.status === 'active'
+                      ? 'bg-blue-100 text-blue-800'
+                      : goal.status === 'met'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {goal.status === 'active' ? 'Active' : goal.status === 'met' ? 'Met' : 'Discontinued'}
+                </span>
+                <span className={`text-gray-900 ${goal.status !== 'active' ? 'line-through text-gray-500' : ''}`}>
+                  {goal.text}
+                </span>
+                {goal.targetDate && (
+                  <span className="text-sm text-gray-500">target {formatShortDate(goal.targetDate)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Demographics, folded away: she comes here to write or re-read notes */}
+      <details className="bg-white rounded-lg shadow-md mb-6 group">
+        <summary className="px-6 min-h-[44px] flex items-center justify-between cursor-pointer text-xl font-bold text-gray-800 list-none">
+          Details
+          <ChevronDown className="text-gray-500 transition-transform group-open:rotate-180" size={20} />
+        </summary>
+        <div className="px-6 pb-6 pt-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+          {detailRow('Age', formatAge(patient.dob), 'age')}
+          {detailRow('Date of Birth', formatShortDate(patient.dob), 'dob')}
+          {detailRow('Parent/Guardian', patient.guardianName || 'Not specified', 'guardian')}
+          {detailRow('Contact Phone', patient.guardianPhone ? formatDisplayPhone(patient.guardianPhone) : 'Not specified', 'phone')}
+          {detailRow('Grade', patient.grade || 'Not specified', 'grade')}
+          {detailRow('School', schoolName, 'school')}
+          {patient.notes && (
+            <div className="md:col-span-2">
+              {detailRow('Additional Notes', patient.notes, 'notes')}
+            </div>
+          )}
+        </div>
+      </details>
 
       <ExportFormatModal
         isOpen={isExportModalOpen}
