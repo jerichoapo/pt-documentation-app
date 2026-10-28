@@ -1,0 +1,181 @@
+{
+  "data": {
+    "version": "1.4",
+    "schools": [
+      {
+        "id": "sch1",
+        "name": "Lincoln Elementary",
+        "street_address": "100 Main St",
+        "city": "Springfield",
+        "state": "IL",
+        "zip_code": "62701",
+        "point_of_contact": "Ms. Rivera",
+        "phone": "2175551234",
+        "email": "rivera@school.org",
+        "notes": "",
+        "created_at": "2026-07-30T10:00:00.000Z",
+        "updated_at": "2026-07-30T10:00:00.000Z",
+        "patient_count": 3
+      },
+      {
+        "id": "sch2",
+        "name": "Washington Middle School",
+        "street_address": "200 Oak Ave",
+        "city": "Springfield",
+        "state": "IL",
+        "zip_code": "62702",
+        "point_of_contact": "Mr. Chen",
+        "phone": "2175555678",
+        "email": "chen@school.org",
+        "notes": "Enter through side door",
+        "created_at": "2026-07-30T10:00:00.000Z",
+        "updated_at": "2026-07-30T10:00:00.000Z",
+        "patient_count": 1
+      }
+    ],
+    "patients": [
+      {
+        "id": "p1",
+        "firstName": "Ava",
+        "lastName": "Martinez",
+        "dob": "2018-03-14",
+        "diagnosis": "Cerebral palsy, spastic diplegia",
+        "guardianName": "Lucia Martinez",
+        "guardianPhone": "2175550101",
+        "notes": "Uses AFOs bilaterally",
+        "grade": "2",
+        "schoolId": "sch1",
+        "school": "Lincoln Elementary",
+        "goals": [
+          { "id": "g1", "text": "Walk 50 feet with a reverse walker independently in the hallway", "status": "active", "targetDate": "2026-12-27", "createdAt": "2026-08-01T10:00:00.000Z" },
+          { "id": "g2", "text": "Climb one flight of stairs with one rail and standby assist", "status": "met", "targetDate": "2026-10-18", "createdAt": "2026-08-01T10:00:00.000Z" }
+        ],
+        "visitFrequency": { "timesPerWeek": 2 },
+        "createdAt": "2026-08-09T10:00:00.000Z",
+        "updatedAt": "2026-10-27T10:00:00.000Z",
+        "lastSessionDate": "2026-10-27",
+        "sessionCount": 3
+      },
+      {
+        "id": "p2",
+        "firstName": "Noah",
+        "lastName": "Johnson-Williams",
+        "dob": "2016-11-02",
+        "diagnosis": "Developmental coordination disorder",
+        "guardianName": "Tasha Johnson",
+        "guardianPhone": "2175550102",
+        "notes": "",
+        "grade": "4",
+        "schoolId": "sch1",
+        "school": "Lincoln Elementary",
+        "goals": [],
+        "visitFrequency": { "timesPerWeek": 1 },
+        "createdAt": "2026-08-19T10:00:00.000Z",
+        "updatedAt": "2026-10-19T10:00:00.000Z",
+        "lastSessionDate": "2026-10-19",
+        "sessionCount": 1
+      },
+      {
+        "id": "p3",
+        "firstName": "Sophia",
+        "lastName": "Nguyen",
+        "dob": "2013-06-21",
+        "diagnosis": "Down syndrome with hypotonia and ligamentous laxity affecting gait",
+        "guardianName": "Linh Nguyen",
+        "guardianPhone": "2175550103",
+        "notes": "",
+        "grade": "7",
+        "schoolId": "sch2",
+        "school": "Washington Middle School",
+        "goals": [],
+        "visitFrequency": null,
+        "createdAt": "2026-08-29T10:00:00.000Z",
+        "updatedAt": "2026-10-25T10:00:00.000Z",
+        "lastSessionDate": "2026-10-25",
+        "sessionCount": 1
+      },
+      {
+        "id": "p4",
+        "firstName": "Liam",
+        "lastName": "Chen",
+        "dob": "2022-07-01",
+        "diagnosis": "Torticollis",
+        "guardianName": "Mei Chen",
+        "guardianPhone": "2175550104",
+        "notes": "",
+        "grade": "PK",
+        "schoolId": "sch1",
+        "school": "Lincoln Elementary",
+        "goals": [],
+        "visitFrequency": { "timesPerWeek": 1 },
+        "createdAt": "2026-09-01T10:00:00.000Z",
+        "updatedAt": "2026-10-26T10:00:00.000Z",
+        "lastSessionDate": "2026-10-26",
+        "sessionCount": 1
+      }
+    ],
+    "sessions": [
+      {
+        "id": "s1", "patientId": "p1", "sessionDate": "2026-10-27", "startTime": "09:30", "endTime": "10:00",
+        "subjective": "Student reported feeling \"a little tired\" after recess but was motivated to work on stairs. Teacher noted improved participation in PE this week.",
+        "objectiveCategories": { "balance": true, "motorSkills": true, "therapeuticActivities": false, "transfers": false, "classroomMobility": true },
+        "objectiveNotes": "Ambulated 40 ft x3 with reverse walker, min verbal cues for upright posture. Single-leg stance L 4 sec, R 6 sec. Stair negotiation 8 steps with 1 rail, step-to pattern, standby assist.",
+        "assessment": "Progressing toward goal 1; distance up from 30 ft last session. Continues to need cues for trunk extension during gait. Fatigues after ~15 min of activity.",
+        "plan": "Continue 2x/week. Next session: progress hallway distance to 50 ft, introduce step-over-step on bottom 3 stairs.",
+        "therExMinutes": 15, "therActMinutes": 15,
+        "createdAt": "2026-10-27T15:05:00.000Z", "updatedAt": "2026-10-27T15:05:00.000Z", "amendments": []
+      },
+      {
+        "id": "s2", "patientId": "p1", "sessionDate": "2026-10-20", "startTime": "09:30", "endTime": "10:00",
+        "subjective": "Student was excited to show new shoes.",
+        "objectiveCategories": { "balance": true, "motorSkills": false, "therapeuticActivities": true, "transfers": false, "classroomMobility": false },
+        "objectiveNotes": "Ambulated 30 ft x3 with reverse walker.",
+        "assessment": "Steady progress on hallway distance.",
+        "plan": "Continue plan of care.",
+        "therExMinutes": 15, "therActMinutes": 15,
+        "createdAt": "2026-10-20T15:05:00.000Z", "updatedAt": "2026-10-21T20:00:00.000Z",
+        "amendments": [
+          { "amendedAt": "2026-10-21T20:00:00.000Z", "previous": { "sessionDate": "2026-10-20", "startTime": "09:30", "endTime": "10:00", "subjective": "Student was excited.", "objectiveCategories": { "balance": true }, "objectiveNotes": "Ambulated 30 ft.", "assessment": "Progress.", "plan": "Continue.", "therExMinutes": 10, "therActMinutes": 10 } }
+        ]
+      },
+      {
+        "id": "s3", "patientId": "p1", "sessionDate": "2026-10-13", "startTime": "09:30", "endTime": "10:00",
+        "subjective": "No complaints.", "objectiveCategories": { "balance": true, "motorSkills": true, "therapeuticActivities": false, "transfers": false, "classroomMobility": false },
+        "objectiveNotes": "Ambulated 25 ft x2.", "assessment": "Baseline for hallway distance.", "plan": "Continue.",
+        "therExMinutes": 20, "therActMinutes": 10,
+        "createdAt": "2026-10-13T15:05:00.000Z", "updatedAt": "2026-10-13T15:05:00.000Z", "amendments": []
+      },
+      {
+        "id": "s4", "patientId": "p2", "sessionDate": "2026-10-19", "startTime": "13:00", "endTime": "13:30",
+        "subjective": "Reports trouble with jumping jacks in PE.", "objectiveCategories": { "balance": true, "motorSkills": true, "therapeuticActivities": false, "transfers": false, "classroomMobility": false },
+        "objectiveNotes": "Jumping jacks 5 consecutive with cues.", "assessment": "Bilateral coordination emerging.", "plan": "Continue 1x/week.",
+        "therExMinutes": 15, "therActMinutes": 15,
+        "createdAt": "2026-10-19T18:05:00.000Z", "updatedAt": "2026-10-19T18:05:00.000Z", "amendments": []
+      },
+      {
+        "id": "s5", "patientId": "p3", "sessionDate": "2026-10-25", "startTime": null, "endTime": null,
+        "subjective": "Quiet today.", "objectiveCategories": { "balance": false, "motorSkills": true, "therapeuticActivities": false, "transfers": false, "classroomMobility": false },
+        "objectiveNotes": "Stair climbing 12 steps step-over-step with rail.", "assessment": "Meeting stair goal.", "plan": "Consult with teacher.",
+        "therExMinutes": 0, "therActMinutes": 0,
+        "createdAt": "2026-10-25T18:05:00.000Z", "updatedAt": "2026-10-25T18:05:00.000Z", "amendments": []
+      },
+      {
+        "id": "s6", "patientId": "p3", "sessionDate": "2026-10-08", "startTime": "10:00", "endTime": "10:30",
+        "subjective": "Deleted note.", "objectiveCategories": { "balance": true, "motorSkills": false, "therapeuticActivities": false, "transfers": false, "classroomMobility": false },
+        "objectiveNotes": "N/A", "assessment": "N/A", "plan": "N/A",
+        "therExMinutes": 15, "therActMinutes": 15,
+        "createdAt": "2026-10-08T15:05:00.000Z", "updatedAt": "2026-10-08T15:05:00.000Z", "amendments": [],
+        "deleted_at": "2026-10-26T12:00:00.000Z", "permanently_deleted_at": "2026-11-25T12:00:00.000Z"
+      },
+      {
+        "id": "s7", "patientId": "p4", "sessionDate": "2026-10-26", "startTime": "08:30", "endTime": "09:00",
+        "subjective": "Parent reports less head tilt at home.", "objectiveCategories": { "balance": false, "motorSkills": true, "therapeuticActivities": false, "transfers": false, "classroomMobility": false },
+        "objectiveNotes": "Cervical rotation improved.", "assessment": "Improving.", "plan": "Continue 1x/week.",
+        "therExMinutes": 15, "therActMinutes": 15,
+        "createdAt": "2026-10-26T14:05:00.000Z", "updatedAt": "2026-10-26T14:05:00.000Z", "amendments": []
+      }
+    ]
+  },
+  "profile": { "firstName": "Jordan", "lastName": "Lee", "credentials": ["PT", "DPT"], "license": "IL 070-012345" },
+  "meta": { "lastBackupAt": "2026-10-16T09:00:00.000Z" }
+}
