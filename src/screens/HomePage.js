@@ -4,8 +4,9 @@ import { Calendar, ChevronRight, HardDrive, UserCog, X, Search, Building2, List 
 import { usePatients, usePatientData } from '../context/PatientDataContext';
 import { useProfile } from '../context/ProfileContext';
 import PatientActionsMenu from '../components/PatientActionsMenu';
+import DueBadge from '../components/DueBadge';
 import { useStartSession } from '../hooks/useStartSession';
-import { parseAppDate, toDateInputValue, formatShortDate, formatMediumDate, formatAge, isPatientDueThisWeek, visitsThisWeek, sortDueFirst } from '../utils/sessionFormatting';
+import { parseAppDate, toDateInputValue, formatShortDate, formatMediumDate, formatAge, sortDueFirst } from '../utils/sessionFormatting';
 import { getAppMeta, daysSince } from '../utils/appMeta';
 
 const BACKUP_NUDGE_AFTER_DAYS = 7;
@@ -80,9 +81,6 @@ const HomePage = () => {
   const handleViewPatient = (patientId) => {
     navigate(`/patients/${patientId}`);
   };
-
-  const dueLabel = (patient) =>
-    `${visitsThisWeek(patient, sessions)} of ${patient.visitFrequency.timesPerWeek} visits this week`;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -245,15 +243,7 @@ const HomePage = () => {
         <div className="pr-10">
           <h4 className="text-lg font-bold text-gray-800 mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             {patient.firstName} {patient.lastName}
-            {isPatientDueThisWeek(patient, sessions) && (
-              <span
-                className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold"
-                title={dueLabel(patient)}
-                aria-label={`Due: ${dueLabel(patient)}`}
-              >
-                Due
-              </span>
-            )}
+            <DueBadge patient={patient} sessions={sessions} />
           </h4>
           <p className="text-sm text-gray-600">Age: {formatAge(patient.dob)}</p>
           <p className="text-sm text-gray-600">Diagnosis: {patient.diagnosis || 'Not specified'}</p>

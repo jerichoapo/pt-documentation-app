@@ -481,7 +481,7 @@ const SessionDetailPage = () => {
                       year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
                     })}
                   </p>
-                  <p className="text-xs text-gray-500 mb-2">Note content before this edit:</p>
+                  <p className="text-sm text-gray-500 mb-2">Note content before this edit:</p>
                   <div className="text-sm text-gray-700 space-y-1.5">
                     <p>
                       <span className="font-semibold">Session:</span>{' '}

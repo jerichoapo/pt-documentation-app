@@ -619,7 +619,7 @@ const PatientForm = () => {
                 <option value="4">4× per week</option>
                 <option value="5">5× per week</option>
               </select>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-sm text-gray-500">
                 Used to flag patients still due for a visit this week.
               </p>
             </div>

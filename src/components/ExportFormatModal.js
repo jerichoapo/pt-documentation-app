@@ -65,14 +65,14 @@ const ExportFormatModal = ({ isOpen, onClose, onExport, isExporting, title, warn
             <button
               onClick={onClose}
               disabled={isExporting}
-              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-h-[44px] px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download size={16} />
               {isExporting ? 'Generating...' : 'Download'}

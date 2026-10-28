@@ -119,7 +119,7 @@ const ProfilePage = () => {
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.firstName ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter first name"
@@ -137,7 +137,7 @@ const ProfilePage = () => {
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.lastName ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter last name"
@@ -171,7 +171,7 @@ const ProfilePage = () => {
               type="text"
               value={formData.license}
               onChange={(e) => handleInputChange('license', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter license number (optional)"
             />
           </div>

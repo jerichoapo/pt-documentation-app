@@ -91,6 +91,7 @@ const SessionWizard = () => {
   // after that decision so the prompt's draft can't be overwritten.
   const draftPromptShown = useRef(false);
   const draftResumed = useRef(false);
+  const draftHasPlaceholderTimes = useRef(false);
   const [draftReady, setDraftReady] = useState(false);
 
   useEffect(() => {
@@ -125,10 +126,17 @@ const SessionWizard = () => {
             const restored = parseAppDate(s.selectedDate);
             if (!isNaN(restored.getTime())) setSelectedDate(restored);
           }
-          if (s.sessionStartTime) setSessionStartTime(s.sessionStartTime);
-          if (s.sessionEndTime) setSessionEndTime(s.sessionEndTime);
-          if (typeof s.therExMinutes === 'number') setTherExMinutes(s.therExMinutes);
-          if (typeof s.therActMinutes === 'number') setTherActMinutes(s.therActMinutes);
+          // Drafts from the old wizard carry `timesInitialized: false` until
+          // Review: their times and minutes are placeholders, so the defaults
+          // effect fills them instead
+          if (s.timesInitialized === false) {
+            draftHasPlaceholderTimes.current = true;
+          } else {
+            if (s.sessionStartTime) setSessionStartTime(s.sessionStartTime);
+            if (s.sessionEndTime) setSessionEndTime(s.sessionEndTime);
+            if (typeof s.therExMinutes === 'number') setTherExMinutes(s.therExMinutes);
+            if (typeof s.therActMinutes === 'number') setTherActMinutes(s.therActMinutes);
+          }
           if (typeof s.currentStep === 'number' && s.currentStep >= 1 && s.currentStep <= 5) {
             setCurrentStep(s.currentStep);
           }
@@ -233,7 +241,7 @@ const SessionWizard = () => {
   useEffect(() => {
     if (!draftReady || !patient || defaultsApplied.current) return;
     defaultsApplied.current = true;
-    if (draftResumed.current) return;
+    if (draftResumed.current && !draftHasPlaceholderTimes.current) return;
 
     const copyFrom = copyFromSource && copyFromSource.patientId === patientId ? copyFromSource : null;
     const times = defaultSessionTimes({ copyFrom, lastSession });
@@ -557,7 +565,7 @@ const SessionWizard = () => {
             placeholder="Example: Child reports feeling tired today. Parent notes that child has been more active at home this week. Child expressed excitement about playing on the swings..."
             className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             Include: child's complaints, parent observations, child's mood, functional concerns
           </p>
         </div>
@@ -628,7 +636,7 @@ const SessionWizard = () => {
             placeholder="Example: Child demonstrated improved standing balance, maintaining position for 45 seconds (up from 30 seconds last session). Gait pattern shows decreased toe-walking. Successfully transferred from wheelchair to mat with minimal assistance..."
             className="w-full h-48 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             Include: measurable observations, test results, physical findings, activities performed
           </p>
         </div>
@@ -667,7 +675,7 @@ const SessionWizard = () => {
 
         {(patient?.goals || []).filter(g => g.status === 'active').length > 0 && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-1">
+            <p className="text-sm font-semibold text-blue-800 uppercase tracking-wide mb-1">
               Active goals
             </p>
             <ol className="text-sm text-blue-900 list-decimal list-inside space-y-0.5">
@@ -690,7 +698,7 @@ const SessionWizard = () => {
             placeholder="Example: Child demonstrates continued progress in balance and coordination skills. Shows 50% improvement in standing balance duration over past 3 sessions. Gait pattern improvements indicate positive response to therapeutic interventions. Child remains motivated and engaged in activities..."
             className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             Include: professional interpretation, progress toward goals, changes from previous sessions, clinical judgment
           </p>
         </div>
@@ -737,7 +745,7 @@ const SessionWizard = () => {
             placeholder="Example: Continue current treatment protocol with increased emphasis on dynamic balance activities. Next session will focus on: 1) Standing balance on unstable surfaces, 2) Tandem walking exercises, 3) Ball activities for coordination. Schedule follow-up in 1 week. Recommend parent practice balance activities at home for 10 minutes daily..."
             className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none text-base"
           />
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             Include: treatment modifications, next session goals, home exercise program, follow-up schedule
           </p>
         </div>

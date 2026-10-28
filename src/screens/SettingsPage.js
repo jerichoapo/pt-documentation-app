@@ -121,7 +121,7 @@ const SettingsPage = () => {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleDownloadBackup}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            className="flex items-center gap-2 min-h-[44px] bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
           >
             <Download size={18} />
             Download Backup
@@ -129,7 +129,7 @@ const SettingsPage = () => {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isImporting}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 min-h-[44px] bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Upload size={18} />
             {isImporting ? 'Importing...' : 'Import Backup'}

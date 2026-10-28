@@ -388,7 +388,7 @@ const RecentlyDeletedPage = () => {
               placeholder={`Search ${activeTab}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full min-h-[44px] pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -471,7 +471,7 @@ const RecentlyDeletedPage = () => {
                     <div className="flex items-center gap-3">
                       {renderItemSummary(item)}
                     </div>
-                    <div className="text-xs text-gray-500 mt-2">
+                    <div className="text-sm text-gray-500 mt-2">
                       Deleted {formatDate(item.deleted_at)}
                       {' · '}
                       {item.daysUntilPermanentDeletion} day{item.daysUntilPermanentDeletion !== 1 ? 's' : ''} left

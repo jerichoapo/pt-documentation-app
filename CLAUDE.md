@@ -11,8 +11,8 @@ PDF/DOCX for the district/clinic.
 - `CI=true npx react-scripts test --watchAll=false` — unit tests (store, date and wizard-default helpers, and a few screens)
 - `CI=true npm run build` — production build; CI mode treats lint warnings as errors
 - `npm run audit:phone` — with `npm start` running, drives every screen at 360px in
-  headless Edge and fails on sideways scroll, a tap target under 40px, or a page
-  error. Screenshots land in `scripts/phone-audit-shots/` (git-ignored).
+  headless Edge and fails on sideways scroll, a tap target under 44px, reading text
+  under 14px, a toast covering the wizard's Continue button, or a page error. Screenshots land in `scripts/phone-audit-shots/` (git-ignored).
 
 ## Architecture
 
@@ -66,7 +66,9 @@ PDF/DOCX for the district/clinic.
 
 9. **Phone layout.** `sm:` (640px) is the only phone/laptop breakpoint. Every button,
    link, and input is at least 44px (`min-h-[44px]`); reading text is at least 14px
-   (`text-sm`, with `text-xs` only on badges); sticky or fixed bottom bars sit above
+   (`text-sm`; `text-xs` only on rounded-full badges and laptop-only table headers, and
+   the tab bar labels are 11px under their icons); toasts sit at the top under the
+   header, never over a bottom bar; sticky or fixed bottom bars sit above
    the 64px tab bar (`bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0`).
    Run `npm run audit:phone` after touching a screen; it must print PASS.
 

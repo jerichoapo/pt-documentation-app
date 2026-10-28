@@ -23,9 +23,10 @@ Updated 2026-10-28 for the mobile pass (`docs/ux-audit-2026-10-28.md`).
       confirm/alert popups must NEVER appear anywhere.
 - [ ] Destructive confirmations (deletes) have a red confirm button; restores and
       neutral confirmations have a blue one. Cancel always closes with no effect.
-- [ ] Feedback arrives as toast messages in the top-right on a laptop, or at the
-      bottom above the tab bar on a phone (green success, red error, yellow
-      warning), that auto-dismiss after ~4 seconds.
+- [ ] Feedback arrives as toast messages at the top, just under the header
+      (top-right on a laptop, full width on a phone), in green for success, red
+      for errors, and yellow for warnings. They auto-dismiss after ~4 seconds,
+      have a 44px × to close them, and never cover the wizard's Continue or Save.
 - [ ] Any date you pick in a date field displays as that same calendar day
       everywhere it later appears (lists, detail pages, exports). No off-by-one.
 - [ ] Clearing a date field never crashes the page; the field snaps back to its
@@ -166,8 +167,8 @@ Prerequisite: at least 2 patients — one with a school, one without.
 - [ ] A patient WITH a visit frequency who has been seen fewer times this week
       (Mon–Sun) than the frequency shows an amber "Due" badge; patients with no
       frequency never show it. (After documenting enough sessions this week,
-      the badge disappears.) Hovering or long-pressing the badge says
-      "{N} of {M} visits this week".
+      the badge disappears.) The badge reads "Due · {N} of {M}", the visits so
+      far this week against the frequency.
 - [ ] Within each school group, and in A–Z, Due patients are listed first.
 - [ ] The card's ⋮ menu offers View All Notes / Edit Patient / Delete Patient;
       Delete asks via modal mentioning "Recently Deleted".
@@ -353,8 +354,9 @@ Reach it via Settings → Recently Deleted, or the link under the Patients list.
 
 ## 10. Phone & tablet layout
 
-Run `npm run audit:phone` with the dev server up; it checks the first three
-items below on every screen and must print PASS. Then use the DevTools device
+Run `npm run audit:phone` with the dev server up; it checks sideways scroll,
+44px targets, 14px text, and a toast over the wizard on every screen, and must
+print PASS. Then use the DevTools device
 toolbar. At **360–375px** (phone):
 - [ ] No page scrolls sideways anywhere; the top bar is one line; the bottom tab
       bar is always visible.

@@ -81,7 +81,7 @@ const SchoolsListPage = () => {
         <h1 className="text-2xl font-bold text-gray-800">Schools</h1>
         <Link
           to="/schools/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+          className="min-h-[44px] bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
         >
           <Plus size={20} />
           Add School

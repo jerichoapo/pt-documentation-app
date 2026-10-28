@@ -268,7 +268,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                 errors.name ? 'border-red-300' : 'border-gray-300'
               }`}
               placeholder="Enter school name"
@@ -290,7 +290,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
                 name="street_address"
                 value={formData.street_address}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.street_address ? 'border-red-300' : 'border-gray-300'
                 }`}
                 placeholder="Enter street address"
@@ -309,7 +309,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
                   name="city"
                   value={formData.city}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.city ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Enter city"
@@ -326,7 +326,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
                   name="state"
                   value={formData.state}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.state ? 'border-red-300' : 'border-gray-300'
                   }`}
                 >
@@ -349,7 +349,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
                 name="zip_code"
                 value={formData.zip_code}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.zip_code ? 'border-red-300' : 'border-gray-300'
                 }`}
                 placeholder="12345"
@@ -373,7 +373,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
                 name="point_of_contact"
                 value={formData.point_of_contact}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.point_of_contact ? 'border-red-300' : 'border-gray-300'
                 }`}
                 placeholder="Enter contact person name"
@@ -392,7 +392,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.phone ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="(555) 123-4567"
@@ -410,7 +410,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full min-h-[44px] px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.email ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="contact@school.edu"
@@ -431,7 +431,7 @@ const SchoolForm = ({ schoolId, isEdit = false, returnTo, returnContext, initial
               value={formData.notes}
               onChange={handleInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Additional notes about the school..."
             />
           </div>

@@ -31,12 +31,13 @@ const Toast = ({ toast, onClose }) => {
   };
 
   return (
-    <div className={`flex items-center gap-3 p-4 rounded-lg border shadow-lg ${getBgColor()}`}>
+    <div className={`flex items-center gap-3 py-2 pl-4 pr-1 rounded-lg border shadow-lg ${getBgColor()}`}>
       {getIcon()}
       <p className="flex-1 text-sm text-gray-800">{toast.message}</p>
       <button
         onClick={() => onClose(toast.id)}
-        className="text-gray-400 hover:text-gray-600"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0 text-gray-400 hover:text-gray-600"
+        aria-label="Dismiss"
       >
         <X size={16} />
       </button>

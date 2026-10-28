@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Search, Plus, X } from 'lucide-react';
 import { usePatients, usePatientData } from '../context/PatientDataContext';
-import { formatShortDate, formatAge, isPatientDueThisWeek, visitsThisWeek } from '../utils/sessionFormatting';
+import { formatShortDate, formatAge } from '../utils/sessionFormatting';
+import DueBadge from '../components/DueBadge';
 
 const PatientsListPage = () => {
   const navigate = useNavigate();
@@ -13,9 +14,6 @@ const PatientsListPage = () => {
 
   const schoolIdFilter = searchParams.get('schoolId');
   const filterSchool = schoolIdFilter ? getSchoolById(schoolIdFilter) : null;
-
-  const dueLabel = (patient) =>
-    `${visitsThisWeek(patient, sessions)} of ${patient.visitFrequency.timesPerWeek} visits this week`;
 
   const getSchoolName = (patient) => {
     if (patient.schoolId) {
@@ -58,7 +56,7 @@ const PatientsListPage = () => {
         <h1 className="text-3xl font-bold text-gray-800">Patients</h1>
         <Link
           to="/patients/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+          className="min-h-[44px] bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
         >
           <Plus size={20} />
           Add Patient
@@ -124,11 +122,7 @@ const PatientsListPage = () => {
                 <div className="flex items-center justify-between gap-2">
                   <div className="font-medium text-gray-900 flex flex-wrap items-center gap-x-2 gap-y-1">
                     {patient.firstName} {patient.lastName}
-                    {isPatientDueThisWeek(patient, sessions) && (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold" title={dueLabel(patient)} aria-label={`Due: ${dueLabel(patient)}`}>
-                        Due
-                      </span>
-                    )}
+                    <DueBadge patient={patient} sessions={sessions} />
                   </div>
                   <div className="text-sm text-gray-500 flex-shrink-0">
                     {formatAge(patient.dob)}
@@ -175,11 +169,7 @@ const PatientsListPage = () => {
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                         {patient.firstName} {patient.lastName}
-                        {isPatientDueThisWeek(patient, sessions) && (
-                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold" title={dueLabel(patient)} aria-label={`Due: ${dueLabel(patient)}`}>
-                            Due
-                          </span>
-                        )}
+                        <DueBadge patient={patient} sessions={sessions} />
                       </div>
                     </td>
                     <td className="px-6 py-4">
