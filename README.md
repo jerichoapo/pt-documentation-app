@@ -33,8 +33,11 @@ your data never touches the server; see [Data & privacy](#data--privacy)).
   Restoring a patient brings their notes back with them.
 - **Backup & restore** — one-click JSON backup download and validated import,
   with a backup-age nudge on Home.
-- **Tablet & phone friendly** — card layouts, 44px tap targets, sticky wizard
-  navigation, and no horizontal scroll on a phone.
+- **Session defaults** — a new note's times come from the last note, and
+  TherEx/TherAct minutes from the last note or an even split of the session
+  length. Saving with zero minutes asks first.
+- **Tablet & phone friendly** — a bottom tab bar on phones, card layouts, 44px
+  tap targets, a sticky wizard bar, and no horizontal scroll on a phone.
 
 ## Getting started
 
@@ -46,8 +49,9 @@ npm start          # dev server on http://localhost:3000
 Other commands:
 
 ```bash
-CI=true npx react-scripts test --watchAll=false   # unit tests (37 tests)
+CI=true npx react-scripts test --watchAll=false   # unit tests (62 tests)
 CI=true npm run build                             # production build; CI mode fails on lint warnings
+npm run audit:phone                               # with npm start running: phone-width layout check
 ```
 
 ## Data & privacy

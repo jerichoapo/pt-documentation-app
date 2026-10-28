@@ -7,6 +7,7 @@ later flows need.
 
 Written 2026-07-03 against schema v1.4 (all four roadmap phases built). Every
 expected behavior here was verified in a live walkthrough on that date.
+Updated 2026-10-28 for the mobile pass (`docs/ux-audit-2026-10-28.md`).
 
 ## Environment setup
 
@@ -22,16 +23,20 @@ expected behavior here was verified in a live walkthrough on that date.
       confirm/alert popups must NEVER appear anywhere.
 - [ ] Destructive confirmations (deletes) have a red confirm button; restores and
       neutral confirmations have a blue one. Cancel always closes with no effect.
-- [ ] Feedback arrives as toast messages in the top-right (green success, red
-      error, yellow warning) that auto-dismiss after ~4 seconds.
+- [ ] Feedback arrives as toast messages in the top-right on a laptop, or at the
+      bottom above the tab bar on a phone (green success, red error, yellow
+      warning), that auto-dismiss after ~4 seconds.
 - [ ] Any date you pick in a date field displays as that same calendar day
       everywhere it later appears (lists, detail pages, exports). No off-by-one.
 - [ ] Clearing a date field never crashes the page; the field snaps back to its
       previous value.
 - [ ] Reloading the browser at any point never loses saved data and never shows
       a "Data corruption" error.
-- [ ] The header navigation is: Home · Patients · Schools · Settings (gear icon)
-      · "+ Add Patient" button. There is no "Recently Deleted" in the header.
+- [ ] On a laptop the top bar reads "Pediatric Therapy Notes" with Home · Patients
+      · Schools · Settings (gear icon) · "+ Add Patient", and the current page's
+      link is blue. On a phone (under 640px) the top bar reads "PT Notes" only,
+      and a bottom tab bar holds Home · Patients · Schools · Settings with the
+      current tab blue. There is no "Recently Deleted" in either.
 
 ---
 
@@ -41,8 +46,9 @@ expected behavior here was verified in a live walkthrough on that date.
 - [ ] A blue banner asks me to add provider info ("exported notes are signed")
       with a "Set up profile" link → goes to the profile form.
 - [ ] No amber backup banner yet (there are no patients).
-- [ ] A "Session Date" card shows today's date; the date input matches the
-      header text exactly (same day).
+- [ ] Under the "Caseload" heading, a line reads "Documenting for {today, e.g.
+      Wed, Oct 28, 2026}" with a "Change" button that opens a date input set to
+      the same day.
 - [ ] The Patients card shows "No patients found…" with an "+ Add Patient" button.
 - [ ] No search box or "By school / A–Z" toggle appears while there are no patients.
 
@@ -98,6 +104,10 @@ expected behavior here was verified in a live walkthrough on that date.
 - [ ] It formats live as "(555) 123 - 4567".
 4. In School, type a name that matches no school and submit.
 - [ ] "Please select a school from the dropdown or leave blank."
+5. Look at the field order and pick a birth date.
+- [ ] The five required fields come first: first name, last name, date of
+      birth, guardian name, phone. "Age: …" appears as text under the birth date;
+      there is no read-only Age box.
 
 ### 4b. Create — school linkage and the Add School detour
 1. Focus the School field.
@@ -124,8 +134,13 @@ expected behavior here was verified in a live walkthrough on that date.
    test data clean.
 
 ### 4d. Patient profile
-- [ ] Shows age (matches birth date), guardian, formatted phone, birth date,
-      diagnosis, grade, school, notes.
+- [ ] The top card shows the name, diagnosis, and the start buttons. Below it, in
+      order: Session History (each row has the date, time, and the first two
+      lines of the assessment), Therapy Goals, and a collapsed "Details" section.
+- [ ] Details shows age (matches birth date; under 6 reads like "4 y 3 m"),
+      guardian, formatted phone, birth date, grade, school, and notes.
+- [ ] Rename the patient's school, then reopen the patient: Details shows the
+      new school name.
 - [ ] Therapy Goals listed with a status chip each (Active = blue); blank goal
       from 4c is absent; target date shows when set.
 - [ ] With zero notes: "Start New Session" and "Start First Session" appear,
@@ -151,7 +166,9 @@ Prerequisite: at least 2 patients — one with a school, one without.
 - [ ] A patient WITH a visit frequency who has been seen fewer times this week
       (Mon–Sun) than the frequency shows an amber "Due" badge; patients with no
       frequency never show it. (After documenting enough sessions this week,
-      the badge disappears.)
+      the badge disappears.) Hovering or long-pressing the badge says
+      "{N} of {M} visits this week".
+- [ ] Within each school group, and in A–Z, Due patients are listed first.
 - [ ] The card's ⋮ menu offers View All Notes / Edit Patient / Delete Patient;
       Delete asks via modal mentioning "Recently Deleted".
 - [ ] With ≥1 patient and no backup for 7+ days (or ever): an amber backup
@@ -160,12 +177,17 @@ Prerequisite: at least 2 patients — one with a school, one without.
 ## 6. Documenting a session (the wizard)
 
 ### 6a. Happy path
-1. On Home, change the Session Date picker to a specific past date (e.g. last
-   Monday). Click "Start Session" on a patient.
-- [ ] The wizard opens on Subjective; a step indicator shows
-      Subjective → Objective → Assessment → Plan → Review → Complete.
-2. Try to reach Complete by clicking the step circles.
-- [ ] Steps S/O/A/P/Review are clickable; Complete is disabled.
+1. On Home, tap "Change" next to "Documenting for …" and pick a past date (for
+   example, last Monday). Click "Start Session" on a patient.
+- [ ] The wizard opens on Subjective, with no patient-and-date screen first.
+      The step indicator shows five circles: Subjective → Objective →
+      Assessment → Plan → Review. On a phone, a line under them reads
+      "Step 1 of 5: Subjective".
+- [ ] A "Session start / Session end" row sits under the patient header,
+      prefilled from the patient's last note (or the last 30 minutes when the
+      patient has no note with times), with the length in minutes beside it.
+2. Click the step circles.
+- [ ] All five are clickable; there is no Complete circle.
 3. Go to Review without filling anything and press "Save & Continue".
 - [ ] A warning toast lists ALL missing sections; nothing saves.
 4. Fill Subjective; on Objective select at least one category AND write notes
@@ -174,16 +196,22 @@ Prerequisite: at least 2 patients — one with a school, one without.
       goals as a numbered reference (only if the patient has goals).
 5. On Review:
 - [ ] The date equals the one picked on Home (not today).
-- [ ] Start/end times are pre-filled (roughly the last half hour); edit them,
-      go Back to a section, return to Review — your edited times are KEPT.
+- [ ] Start/end times match the Subjective row; edit them, go Back to a
+      section, return to Review, and your edited times are KEPT.
+- [ ] TherEx/TherAct are prefilled from the last note, or, when it has none,
+      the session length split evenly (odd minute to TherEx). While they come
+      from the split they follow time changes; once you edit one, they stay.
 - [ ] Set TherEx + TherAct so they exceed the session length: an amber hint
       appears ("Combined minutes (X) exceed the session length (Y)…") and does
       NOT block saving; fixing the times removes it.
-6. "Save & Continue".
+6. Set TherEx and TherAct both to 0 and press "Save & Continue".
+- [ ] A "No treatment minutes" modal asks first; Cancel keeps you on Review
+      with nothing saved. Restore the minutes.
+7. "Save & Continue".
 - [ ] Toast "Session saved for {name}"; a "Session Documented Successfully!"
       screen with a summary; the note is already saved at this point (reloading
       here must not lose it).
-7. "Return to Patient".
+8. "Return to Patient".
 - [ ] The note is in Session History with the correct date and duration, and
       the patient's "Last session" on Home/lists reflects it.
 
@@ -203,8 +231,9 @@ Prerequisite: the patient has ≥1 saved note.
    Click it.
 - [ ] Toast "Prefilled from the {date} session — update what changed before
       saving"; Subjective/Objective (incl. categories)/Assessment/Plan and
-      TherEx/TherAct match the last note; the DATE is today and the times are
-      fresh (NOT copied).
+      TherEx/TherAct match the last note; the DATE is today; the start and end
+      times are the last note's (minutes fall back to the split when that note
+      had 0).
 2. Change some text and save.
 - [ ] A NEW note is created; the original note is unchanged.
 3. Leave an unsaved draft, then enter via "Start from Last Session".
@@ -324,17 +353,25 @@ Reach it via Settings → Recently Deleted, or the link under the Patients list.
 
 ## 10. Phone & tablet layout
 
-Use DevTools device toolbar. At **375px** (phone):
-- [ ] Header wraps; no page scrolls sideways anywhere.
+Run `npm run audit:phone` with the dev server up; it checks the first three
+items below on every screen and must print PASS. Then use the DevTools device
+toolbar. At **360–375px** (phone):
+- [ ] No page scrolls sideways anywhere; the top bar is one line; the bottom tab
+      bar is always visible.
+- [ ] Every button, link, and input is at least 44px tall; back links read
+      "Back".
+- [ ] On a note, Download / Edit / Delete fit in one row and all three work;
+      in edit mode the date and times stack instead of running off screen.
 - [ ] Patients, Schools, and Recently Deleted show stacked CARDS instead of
       tables, with comfortably large tap targets (school edit/delete ≈44px).
-- [ ] In the wizard, the step indicator shrinks (circles only, no labels) and
-      the Back/Continue buttons stick to the bottom of the screen.
+- [ ] In the wizard, the step indicator shows five circles with "Step N of 5"
+      under them, and the Back/Continue bar sticks just above the tab bar.
 - [ ] Modals fit the screen width.
 
 At **768px** (tablet):
 - [ ] Tables return on Patients/Schools/Recently Deleted; step labels return in
-      the wizard; still no sideways scroll on any page.
+      the wizard; the nav moves to the top bar and the tab bar is gone (from
+      640px); still no sideways scroll on any page.
 
 ---
 
@@ -350,8 +387,10 @@ At **768px** (tablet):
 - Permanently deleting a patient permanently deletes all their notes too.
 - Amendments record only clinical-content changes; the history has no
   author (single-provider app) and exports show amendment dates, not diffs.
-- The Home date picker seeds the session date for "Start Session" from Home;
-  starting from the patient profile always defaults to today.
+- The Home "Documenting for" date seeds the session date for "Start Session"
+  from Home; starting from the patient profile always defaults to today.
+- A new note's times default to the patient's last note, so a session at a
+  different time needs its times changed on Subjective or Review.
 - The backup nudge dismissal lasts only for the browser session — it returns
   after restarting the browser until a backup is actually downloaded.
 - Trash items auto-purge after 30 days without further warning.

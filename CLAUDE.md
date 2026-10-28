@@ -8,8 +8,11 @@ PDF/DOCX for the district/clinic.
 ## Commands
 
 - `npm start` — dev server on :3000 (`.claude/launch.json` has a `pt-app` preview config)
-- `CI=true npx react-scripts test --watchAll=false` — unit tests (store + date utils)
+- `CI=true npx react-scripts test --watchAll=false` — unit tests (store, date and wizard-default helpers, and a few screens)
 - `CI=true npm run build` — production build; CI mode treats lint warnings as errors
+- `npm run audit:phone` — with `npm start` running, drives every screen at 360px in
+  headless Edge and fails on sideways scroll, a tap target under 40px, or a page
+  error. Screenshots land in `scripts/phone-audit-shots/` (git-ignored).
 
 ## Architecture
 
@@ -22,6 +25,15 @@ PDF/DOCX for the district/clinic.
 - `src/screens/*` — one file per route. `src/App.js` has the route table.
 - `src/utils/sessionFormatting.js` — shared date/time/phone formatting.
 - `src/utils/exportNotes.js` — PDF (pdfmake) and DOCX (docx) note exports.
+- `src/utils/sessionDefaults.js` — wizard defaults: session times from the copied or
+  last note before the clock, and TherEx/TherAct minutes from those notes before an
+  even split of the session length.
+- `src/components/AppHeader.js`, `BottomNav.js`, `BackLink.js` — the app shell. Below
+  Tailwind's `sm:` (640px) there is a one-line top bar and a bottom tab bar; from
+  `sm:` up the nav sits in the top bar.
+- `package.json` `jest.moduleNameMapper` points React Router 7 at its CommonJS build
+  and `setupTests.js` polyfills TextEncoder. Without both, any test that renders a
+  router fails to load under CRA's Jest 27.
 - Storage keys: `ptAppData` (schema v1.4), `pt-app-profile` (provider info),
   `pt-app-meta` (backup timestamps), `ptAppSessionDraft` (wizard draft).
 
@@ -52,13 +64,24 @@ PDF/DOCX for the district/clinic.
 8. Run the unit tests after touching `store.js` or `sessionFormatting.js` — they are
    regression tests for the corruption/date bugs.
 
+9. **Phone layout.** `sm:` (640px) is the only phone/laptop breakpoint. Every button,
+   link, and input is at least 44px (`min-h-[44px]`); reading text is at least 14px
+   (`text-sm`, with `text-xs` only on badges); sticky or fixed bottom bars sit above
+   the 64px tab bar (`bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0`).
+   Run `npm run audit:phone` after touching a screen; it must print PASS.
+
 ## Current state & next work
 
 Bug-fix pass (commit `87b30bd`) plus all four roadmap phases are built:
 backup/restore + drafts + ConfirmModal (Phase 1), copy-forward + last-note peek
 (Phase 2), caseload search/grouping + nav + tablet pass (Phase 3), and schema
-1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 37 passing
+1.4 with amendments/goals/visitFrequency (Phase 4). `npm test` = 62 passing
 tests; CI build clean.
+
+The mobile pass from `docs/ux-audit-2026-10-28.md` is built (plan:
+`docs/superpowers/plans/mobile-audit-fixes-2026-10-28.md`). Phase 2, Supabase sync and
+the installable Android app, is designed in
+`docs/superpowers/specs/android-cloud-sync-design-2026-10-27.md` and not built yet.
 
 **[docs/ROADMAP.md](docs/ROADMAP.md)** holds the per-feature specs and
 acceptance criteria for everything above — the reference when modifying these
